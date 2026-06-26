@@ -11,20 +11,14 @@ per tahun) dan ringkasan terkini.
 
 from __future__ import annotations
 
-import io
-import os
 import re
-import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime
-from functools import lru_cache
-from pathlib import Path
-from typing import Any
 
-import fitz  # PyMuPDF
-import pdfplumber
 import requests
 import yfinance as yf
+
+from app.services.pdf_extractor import combine_page_text, extract_pdf_pages
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537",
@@ -37,10 +31,6 @@ IDX_PDF_PATTERN = (
 )
 
 HISTORY_YEARS = 3
-OCR_TEXT_THRESHOLD = int(os.getenv("STOCKGRAPH_OCR_TEXT_THRESHOLD", "1200"))
-OCR_MAX_PAGES = int(os.getenv("STOCKGRAPH_OCR_MAX_PAGES", "12"))
-OCR_DPI = int(os.getenv("STOCKGRAPH_OCR_DPI", "180"))
-ENABLE_PADDLE_OCR = os.getenv("STOCKGRAPH_ENABLE_OCR", "true").lower() in {"1", "true", "yes", "on"}
 
 
 @dataclass
@@ -204,189 +194,61 @@ def _try_download_idx_pdf(stock_code: str, year: int, period: str = "Tahunan") -
     return None
 
 
-def parse_pdf(pdf_source: str | bytes) -> dict:
-    """Parse laporan keuangan PDF via native text, tables, and PaddleOCR fallback."""
-    if isinstance(pdf_source, str):
-        with open(pdf_source, "rb") as f:
-            pdf_bytes = f.read()
-    else:
-        pdf_bytes = pdf_source
-
-    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-    native_text = "\n".join(page.get_text() for page in doc)
-    ocr_text = _ocr_pdf_pages(doc) if _should_run_ocr(native_text, doc) else ""
-    full_text = _merge_pdf_text(native_text, ocr_text)
-
-    tables: list = []
-    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-        for page in pdf.pages:
-            for tbl in page.extract_tables():
-                if tbl and len(tbl) > 2:
-                    tables.append(tbl)
+def parse_pdf(
+    pdf_source: str | bytes,
+    *,
+    source_file: str = "",
+    document_year: int | None = None,
+    ticker: str = "",
+    company: str = "",
+) -> dict:
+    """Parse laporan keuangan PDF using PyMuPDF text layer only."""
+    extraction = extract_pdf_pages(
+        pdf_source,
+        source_file=source_file,
+        document_year=document_year,
+        ticker=ticker,
+        company=company,
+    )
+    full_text = combine_page_text(extraction.pages)
+    tables = [
+        table
+        for page in extraction.pages
+        for table in page.tables
+    ]
 
     metrics = _parse_metrics_from_text(full_text)
     metrics["tables_count"] = len(tables)
     metrics["tables"] = tables[:15]
     metrics["raw_text"] = full_text
-    metrics["native_text_length"] = len(native_text.strip())
-    metrics["ocr_text_length"] = len(ocr_text.strip())
-    metrics["ocr_used"] = bool(ocr_text.strip())
+    metrics["source_file"] = extraction.source_file
+    metrics["metrics_extraction_method"] = "pymupdf"
+    metrics["page_extractions"] = [page.to_dict() for page in extraction.pages]
+    metrics["native_text_length"] = sum(
+        len(page.text.strip())
+        for page in extraction.pages
+    )
+    metrics["needs_review_pages"] = [
+        page.page_number for page in extraction.pages if page.needs_review
+    ]
+    metrics["extraction_errors"] = [
+        {
+            "source_file": page.source_file,
+            "page_number": page.page_number,
+            "extraction_method": page.extraction_method,
+            "error": page.error,
+        }
+        for page in extraction.pages
+        if page.error
+    ]
+    if extraction.error:
+        metrics["extraction_errors"].append({
+            "source_file": extraction.source_file,
+            "page_number": None,
+            "extraction_method": "pymupdf",
+            "error": extraction.error,
+        })
     return metrics
-
-
-def _should_run_ocr(native_text: str, doc: fitz.Document) -> bool:
-    """Run OCR for scanned/image-heavy PDFs or when native extraction is weak."""
-    if not ENABLE_PADDLE_OCR:
-        return False
-    if len(native_text.strip()) < OCR_TEXT_THRESHOLD:
-        return True
-
-    sampled_pages = min(len(doc), 3)
-    image_count = 0
-    for page in list(doc)[:sampled_pages]:
-        try:
-            image_count += len(page.get_images(full=True))
-        except Exception:
-            continue
-    return sampled_pages > 0 and image_count >= sampled_pages
-
-
-def _merge_pdf_text(native_text: str, ocr_text: str) -> str:
-    native = native_text.strip()
-    ocr = ocr_text.strip()
-    if native and ocr:
-        return f"{native}\n\n--- OCR PaddleOCR ---\n{ocr}"
-    return native or ocr
-
-
-@lru_cache(maxsize=1)
-def _get_paddle_ocr():
-    """Lazy-load PaddleOCR so missing OCR dependencies do not break the app."""
-    try:
-        from paddleocr import PaddleOCR
-    except Exception as exc:
-        print(f"[PaddleOCR] disabled: {exc}")
-        return None
-
-    try:
-        return PaddleOCR(
-            use_doc_orientation_classify=False,
-            use_doc_unwarping=False,
-            use_textline_orientation=False,
-        )
-    except TypeError:
-        try:
-            return PaddleOCR(use_angle_cls=False, lang="en")
-        except Exception as exc:
-            print(f"[PaddleOCR] init failed: {exc}")
-            return None
-    except Exception as exc:
-        print(f"[PaddleOCR] init failed: {exc}")
-        return None
-
-
-def _ocr_pdf_pages(doc: fitz.Document) -> str:
-    ocr = _get_paddle_ocr()
-    if ocr is None:
-        return ""
-
-    page_texts: list[str] = []
-    zoom = OCR_DPI / 72
-    matrix = fitz.Matrix(zoom, zoom)
-
-    for page_index, page in enumerate(list(doc)[:OCR_MAX_PAGES], start=1):
-        tmp_path = ""
-        try:
-            pix = page.get_pixmap(matrix=matrix, alpha=False)
-            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-                tmp_path = tmp.name
-                pix.save(tmp_path)
-
-            lines = _extract_ocr_lines(ocr, tmp_path)
-            if lines:
-                page_texts.append(f"[OCR page {page_index}]\n" + "\n".join(lines))
-        except Exception as exc:
-            print(f"[PaddleOCR] page {page_index} failed: {exc}")
-        finally:
-            if tmp_path:
-                try:
-                    Path(tmp_path).unlink(missing_ok=True)
-                except OSError:
-                    pass
-
-    return "\n\n".join(page_texts)
-
-
-def _extract_ocr_lines(ocr: Any, image_path: str) -> list[str]:
-    """Support PaddleOCR 3.x predict() and 2.x ocr() result formats."""
-    try:
-        result = ocr.predict(input=image_path)
-        lines = _lines_from_paddle_v3_result(result)
-        if lines:
-            return lines
-    except TypeError:
-        try:
-            result = ocr.predict(image_path)
-            lines = _lines_from_paddle_v3_result(result)
-            if lines:
-                return lines
-        except AttributeError:
-            pass
-        except Exception as exc:
-            print(f"[PaddleOCR] predict failed: {exc}")
-    except AttributeError:
-        pass
-    except Exception as exc:
-        print(f"[PaddleOCR] predict failed: {exc}")
-
-    try:
-        result = ocr.ocr(image_path, cls=False)
-        lines = _lines_from_paddle_v3_result(result)
-        if lines:
-            return lines
-    except AttributeError:
-        pass
-    except Exception as exc:
-        print(f"[PaddleOCR] legacy ocr failed: {exc}")
-
-    try:
-        result = ocr.ocr(image_path, cls=False)
-        return _lines_from_paddle_v2_result(result)
-    except Exception as exc:
-        print(f"[PaddleOCR] legacy ocr failed: {exc}")
-        return []
-
-
-def _lines_from_paddle_v3_result(result: Any) -> list[str]:
-    lines: list[str] = []
-    for item in result or []:
-        data = getattr(item, "json", None)
-        if callable(data):
-            try:
-                data = data()
-            except Exception:
-                data = None
-        if data is None:
-            data = getattr(item, "res", None)
-        if data is None and isinstance(item, dict):
-            data = item.get("res", item)
-
-        res = data.get("res", data) if isinstance(data, dict) else {}
-        texts = res.get("rec_texts") if isinstance(res, dict) else None
-        if texts:
-            lines.extend(str(text).strip() for text in texts if str(text).strip())
-    return lines
-
-
-def _lines_from_paddle_v2_result(result: Any) -> list[str]:
-    lines: list[str] = []
-    for page in result or []:
-        for item in page or []:
-            if len(item) >= 2 and isinstance(item[1], (list, tuple)) and item[1]:
-                text = str(item[1][0]).strip()
-                if text:
-                    lines.append(text)
-    return lines
 
 
 def _parse_idr_number(text: str) -> float | None:
@@ -454,7 +316,13 @@ def _enrich_historical_with_idx_pdf(data: FundamentalData) -> None:
         if not pdf_bytes:
             continue
         try:
-            metrics = parse_pdf(pdf_bytes)
+            metrics = parse_pdf(
+                pdf_bytes,
+                source_file=f"idx_cdn_{data.stock_code}_{snap.year}_Tahunan.pdf",
+                document_year=snap.year,
+                ticker=data.stock_code,
+                company=data.company_name,
+            )
         except Exception as exc:
             print(f"[{data.stock_code}] PDF parse error tahun {snap.year}: {exc}")
             continue
@@ -488,7 +356,13 @@ def fetch_financial_data(
     if pdf_path:
         with open(pdf_path, "rb") as f:
             pdf_bytes = f.read()
-        metrics = parse_pdf(pdf_bytes)
+        metrics = parse_pdf(
+            pdf_bytes,
+            source_file=pdf_path,
+            document_year=data.year or None,
+            ticker=stock_code,
+            company=data.company_name,
+        )
         for key in ("net_profit", "total_assets", "total_equity", "eps", "revenue"):
             if metrics.get(key):
                 setattr(data, key, metrics[key])

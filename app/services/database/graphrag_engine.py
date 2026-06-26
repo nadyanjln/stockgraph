@@ -13,7 +13,11 @@ Resource lifecycle:
 
 from __future__ import annotations
 
+import asyncio
 import os
+import re
+import socket
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -32,8 +36,12 @@ from app.services.database.graph_builder import (
     graph_name_for_year,
     list_year_graphs,
 )
+from app.utils.logger import get_logger
 
 load_dotenv()
+
+URL_REGEX = re.compile(r"https?://[^\s)\]>\"']+", flags=re.IGNORECASE)
+logger = get_logger("stockgraph.graphrag")
 
 try:
     from app.services.database.schema import BEI_SCHEMA
@@ -48,6 +56,7 @@ class QueryResult:
     year: int
     context: list[str] = field(default_factory=list)
     citations: list[str] = field(default_factory=list)
+    sources: list[dict[str, str]] = field(default_factory=list)
 
 
 class GraphRAGEngine:
@@ -80,6 +89,19 @@ class GraphRAGEngine:
         self._embedder_dim = embedder_dim
         self._instances: dict[int, GraphRAG] = {}
         self._available_years: list[int] = []
+        self._is_available = False
+        self._last_health_check = 0.0
+        self._health_check_interval = float(
+            os.getenv("FALKORDB_HEALTH_CHECK_INTERVAL", "5")
+        )
+        self._connect_timeout = float(os.getenv("FALKORDB_CONNECT_TIMEOUT", "0.5"))
+        self._ingest_timeout = float(
+            os.getenv("STOCKGRAPH_INGEST_TIMEOUT_SECONDS", "180")
+        )
+        self._finalize_timeout = float(
+            os.getenv("STOCKGRAPH_FINALIZE_TIMEOUT_SECONDS", "90")
+        )
+        self._connection_error = ""
 
     async def __aenter__(self) -> "GraphRAGEngine":
         await self.initialize()
@@ -90,15 +112,69 @@ class GraphRAGEngine:
 
     async def initialize(self) -> None:
         """Discover tahun-tahun graph yang sudah ada di FalkorDB."""
-        self._available_years = list_year_graphs(self._host, self._port)
-        print(f"[GraphRAG] Available years: {self._available_years}")
+        registry_years = list_year_graphs(self._host, self._port)
+        if await self._ensure_available(force=True):
+            self._available_years = registry_years
+            logger.info("FalkorDB connected; available years=%s", self._available_years)
+        else:
+            self._available_years = []
+            logger.warning(
+                "FalkorDB unavailable at %s:%s; graph retrieval is disabled until "
+                "the service becomes reachable",
+                self._host,
+                self._port,
+            )
 
     @property
     def available_years(self) -> list[int]:
         return self._available_years
 
+    @property
+    def is_available(self) -> bool:
+        return self._is_available
+
+    @property
+    def connection_error(self) -> str:
+        return self._connection_error
+
+    def _check_connection(self) -> tuple[bool, str]:
+        try:
+            with socket.create_connection(
+                (self._host, self._port),
+                timeout=self._connect_timeout,
+            ):
+                return True, ""
+        except OSError as exc:
+            return False, str(exc)
+
+    async def _ensure_available(self, force: bool = False) -> bool:
+        now = time.monotonic()
+        if (
+            not force
+            and now - self._last_health_check < self._health_check_interval
+        ):
+            return self._is_available
+
+        was_available = self._is_available
+        self._last_health_check = now
+        available, error = await asyncio.to_thread(self._check_connection)
+        self._is_available = available
+        self._connection_error = error
+
+        if available and not was_available:
+            self._available_years = list_year_graphs(self._host, self._port)
+            logger.info("FalkorDB connection restored at %s:%s", self._host, self._port)
+        elif not available and was_available:
+            logger.warning("FalkorDB connection lost at %s:%s", self._host, self._port)
+
+        return available
+
     async def _get_or_create(self, year: int) -> GraphRAG:
         """Lazy-init GraphRAG instance untuk satu tahun (cached)."""
+        if not await self._ensure_available():
+            raise ConnectionError(
+                f"FalkorDB tidak tersedia di {self._host}:{self._port}"
+            )
         if year in self._instances:
             return self._instances[year]
 
@@ -148,12 +224,22 @@ class GraphRAGEngine:
         documents: list[IngestDocument],
     ) -> GraphStats:
         """Ingest prepared domain documents using GraphRAG-SDK ``rag.ingest``."""
-        rag = await self._get_or_create(year)
         stats = GraphStats(graph_name=graph_name_for_year(year))
+        if not await self._ensure_available():
+            stats.errors = 1
+            stats.error_messages.append(
+                f"FalkorDB tidak tersedia di {self._host}:{self._port}"
+            )
+            return stats
+
+        rag = await self._get_or_create(year)
 
         for doc in documents:
             try:
-                result = await self._ingest_text(rag, doc.text, doc.document_id)
+                result = await asyncio.wait_for(
+                    self._ingest_text(rag, doc.text, doc.document_id),
+                    timeout=self._ingest_timeout,
+                )
                 stats.documents_ingested += 1
                 stats.nodes_created += int(getattr(result, "nodes_created", 0) or 0)
                 stats.edges_created += int(
@@ -166,7 +252,7 @@ class GraphRAGEngine:
                 stats.error_messages.append(f"{doc.document_id}: {exc}")
 
         try:
-            await rag.finalize()
+            await asyncio.wait_for(rag.finalize(), timeout=self._finalize_timeout)
         except Exception as exc:
             stats.errors += 1
             stats.error_messages.append(f"finalize: {exc}")
@@ -176,10 +262,10 @@ class GraphRAGEngine:
     async def _ingest_text(self, rag: GraphRAG, text: str, document_id: str):
         """Call GraphRAG-SDK ingest across minor API variants."""
         try:
-            return await rag.ingest(document_id, text=text)
+            return await rag.ingest(text=text, document_id=document_id)
         except TypeError:
             try:
-                return await rag.ingest(text=text, document_id=document_id)
+                return await rag.ingest(document_id, text=text)
             except TypeError:
                 return await rag.ingest(text)
 
@@ -193,6 +279,22 @@ class GraphRAGEngine:
         Query knowledge graph satu tahun. Default: tahun terbaru yang tersedia.
         """
         target_year = year or (self._available_years[-1] if self._available_years else 0)
+        if not await self._ensure_available():
+            return QueryResult(
+                question=question,
+                answer=(
+                    f"FalkorDB tidak tersedia di {self._host}:{self._port}; "
+                    "konteks knowledge graph belum dapat diambil."
+                ),
+                year=target_year,
+            )
+
+        if not self._available_years:
+            self._available_years = list_year_graphs(self._host, self._port)
+            target_year = year or (
+                self._available_years[-1] if self._available_years else 0
+            )
+
         if target_year == 0:
             return QueryResult(
                 question=question, answer="Belum ada data graph.", year=0,
@@ -210,17 +312,139 @@ class GraphRAGEngine:
 
         ctx_lines: list[str] = []
         citations: list[str] = []
+        sources: list[dict[str, str]] = []
+
+        def collect_urls(text: str) -> None:
+            for match in URL_REGEX.findall(text or ""):
+                cleaned = match.rstrip(".,;:")
+                if cleaned:
+                    citations.append(cleaned)
+
+        def metadata_line(text: str, label: str) -> str:
+            match = re.search(
+                rf"(?im)^\s*{re.escape(label)}\s*:\s*(.+?)\s*$",
+                text,
+            )
+            return match.group(1).strip() if match else ""
+
+        def add_source(
+            *,
+            source_type: str = "",
+            title: str = "",
+            source_name: str = "",
+            url: str = "",
+            publication_date: str = "",
+            snippet: str = "",
+            retrieved_text: str = "",
+            source_id: str = "",
+            reporting_period: str = "",
+        ) -> None:
+            clean_url = url.strip()
+            clean_title = title.strip() or source_name.strip() or clean_url
+            clean_snippet = snippet.strip()[:700]
+            clean_retrieved = retrieved_text.strip()[:2000]
+            key = (source_id or clean_url or clean_title or clean_snippet).lower()
+            if not key:
+                return
+            if any(item["_key"] == key for item in sources):
+                return
+            sources.append({
+                "_key": key,
+                "source_id": source_id.strip() or f"source-{len(sources) + 1}",
+                "source_type": source_type.strip(),
+                "title": clean_title or f"Sumber {len(sources) + 1}",
+                "source_name": source_name.strip(),
+                "url": clean_url,
+                "publication_date": publication_date.strip(),
+                "reporting_period": reporting_period.strip(),
+                "snippet": clean_snippet,
+                "retrieved_text": clean_retrieved or clean_snippet,
+            })
+
         ctx = getattr(response, "context", None)
         if ctx:
             for item in ctx:
                 if isinstance(item, str):
                     ctx_lines.append(item)
+                    collect_urls(item)
+                    urls = URL_REGEX.findall(item)
+                    url = metadata_line(item, "URL") or (
+                        urls[0].rstrip(".,;:") if urls else ""
+                    )
+                    add_source(
+                        source_type=(
+                            "financial_report"
+                            if "laporan keuangan" in item.lower()
+                            or "tahun fiskal" in item.lower()
+                            else "news"
+                            if "berita" in item.lower() or url
+                            else ""
+                        ),
+                        source_id=metadata_line(item, "ID") or url,
+                        title=(
+                            metadata_line(item, "Judul")
+                            or metadata_line(item, "Nama perusahaan")
+                            or url
+                            or f"Graph context {len(sources) + 1}"
+                        ),
+                        source_name=metadata_line(item, "Sumber"),
+                        url=url,
+                        publication_date=(
+                            metadata_line(item, "Tanggal publikasi")
+                        ),
+                        reporting_period=metadata_line(item, "Tahun fiskal"),
+                        snippet=item,
+                        retrieved_text=item,
+                    )
                 elif isinstance(item, dict):
                     src = item.get("source") or item.get("document_id")
+                    for key in ("url", "source_url", "link", "document_id", "source"):
+                        value = item.get(key)
+                        if value:
+                            citations.append(str(value))
+                            collect_urls(str(value))
                     if src:
                         citations.append(str(src))
                     snippet = item.get("text") or str(item)
                     ctx_lines.append(snippet[:500])
+                    collect_urls(snippet)
+                    add_source(
+                        source_type=str(
+                            item.get("source_type")
+                            or (
+                                "financial_report"
+                                if item.get("reporting_period")
+                                else "news"
+                                if item.get("url") or item.get("publisher")
+                                else ""
+                            )
+                        ),
+                        source_id=str(item.get("source_id") or item.get("document_id") or ""),
+                        title=str(item.get("title") or item.get("name") or src or ""),
+                        source_name=str(
+                            item.get("source_name")
+                            or item.get("publisher")
+                            or item.get("source")
+                            or ""
+                        ),
+                        url=str(
+                            item.get("url")
+                            or item.get("source_url")
+                            or item.get("link")
+                            or ""
+                        ),
+                        publication_date=str(
+                            item.get("publication_date")
+                            or item.get("published")
+                            or item.get("date")
+                            or ""
+                        ),
+                        reporting_period=str(item.get("reporting_period") or ""),
+                        snippet=str(item.get("snippet") or snippet),
+                        retrieved_text=str(item.get("retrieved_text") or snippet),
+                    )
+
+        clean_sources = [{k: v for k, v in item.items() if k != "_key"} for item in sources[:8]]
 
         return QueryResult(
             question=question,
@@ -228,6 +452,7 @@ class GraphRAGEngine:
             year=target_year,
             context=ctx_lines[:8],
             citations=list(dict.fromkeys(citations))[:8],
+            sources=clean_sources,
         )
 
     async def close(self) -> None:

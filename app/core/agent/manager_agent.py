@@ -12,6 +12,7 @@ from app.core.agent.common import (
     chat_complete,
     stream_chat,
 )
+from app.core.agent.evidence_policy import coverage_instruction
 
 MANAGER_ROUTER_SYSTEM = """\
 Kamu adalah Manager Agent yang merencanakan strategi menjawab pertanyaan analisis saham BEI.
@@ -36,7 +37,22 @@ menggabungkannya menjadi jawaban tunggal yang koheren.
 Aturan:
 - Jawab dalam Bahasa Indonesia, ringkas tapi informatif.
 - Mulai dengan kesimpulan utama (1 kalimat), lanjut detail pendukung.
-- Cantumkan sitasi sumber bila ada.
+- Gunakan Markdown yang rapi. Heading hanya untuk bagian utama.
+- Gunakan numbered list untuk kategori/faktor utama, dan bullet list untuk detail turunan.
+- Jangan menulis nomor list secara manual berulang seperti "1." pada setiap item;
+  biarkan Markdown membuat nomor otomatis dalam satu daftar.
+- Gunakan paragraf pendek, maksimal sekitar 3-4 baris.
+- Cantumkan sitasi inline [1], [2], dst. tepat setelah klaim yang didukung.
+- Satu klaim boleh memakai beberapa sumber, misalnya [1] [3].
+- Jangan menaruh citation pada baris terpisah.
+- Jangan membuat nomor sitasi yang tidak tersedia pada daftar sumber.
+- Gunakan hanya nomor sumber yang tercantum; metadata sumber tidak boleh dikarang.
+- Jangan memberi sitasi pada klaim bahwa data tidak ditemukan.
+- Jangan menambahkan faktor, angka, atau pengetahuan eksternal yang tidak muncul
+  pada jawaban spesialis atau cuplikan sumber retrieval.
+- Setiap klaim faktual spesifik harus memiliki sitasi inline yang valid.
+- Label [Berita] dan [Laporan Keuangan IDX] pada daftar sumber menunjukkan provenance.
+- Jangan membuat bagian sumber sendiri; aplikasi akan menampilkannya.
 - Bila konteks dari history relevan, gunakan untuk menjaga koherensi conversation.
 - Jangan ulangi pertanyaan; langsung ke jawaban.
 """
@@ -80,6 +96,19 @@ async def manager_plan(
             raw = raw.strip("`").lstrip("json").strip()
         plan = json.loads(raw)
         agents = [a for a in plan.get("agents", []) if a in ("news", "financial")]
+        comprehensive_query = any(
+            keyword in question.lower()
+            for keyword in (
+                "prospek",
+                "risiko",
+                "faktor",
+                "analisis mendalam",
+                "fundamental dan berita",
+                "kondisi pasar",
+            )
+        )
+        if comprehensive_query:
+            agents = ["news", "financial"]
         if not agents:
             agents = ["news", "financial"]
         year = int(plan.get("year") or default_year)
@@ -104,6 +133,7 @@ def manager_synthesizer_messages(
     history: list[ChatMessage],
     sub_answers: dict[str, str],
     sub_citations: list[str],
+    sources: list[dict[str, str]] | None = None,
 ) -> list[ChatMessage]:
     """Build messages for the final synthesizer call."""
     parts = []
@@ -111,7 +141,31 @@ def manager_synthesizer_messages(
         parts.append(f"## Jawaban News Analyst:\n{sub_answers['news']}")
     if "financial" in sub_answers:
         parts.append(f"## Jawaban Financial Analyst:\n{sub_answers['financial']}")
-    citations_block = "\n".join(f"- {c}" for c in sub_citations[:8]) or "(tidak ada)"
+    source_items = sources or []
+    source_lines = []
+    for index, source in enumerate(source_items[:8], start=1):
+        title = source.get("title") or source.get("source_name") or source.get("url") or f"Sumber {index}"
+        publisher = source.get("source_name") or ""
+        date = source.get("publication_date") or ""
+        source_type = source.get("source_type") or ""
+        reporting_period = source.get("reporting_period") or ""
+        label = (
+            "[Laporan Keuangan IDX]"
+            if source_type == "financial_report"
+            else "[Berita]"
+            if source_type == "news"
+            else "[Sumber]"
+        )
+        snippet = source.get("snippet") or source.get("retrieved_text") or ""
+        source_lines.append(
+            f"[{index}] {label} {title}\n"
+            f"Publisher: {publisher or '-'}\n"
+            f"Tanggal/Periode: {date or reporting_period or '-'}\n"
+            f"URL: {source.get('url') or '-'}\n"
+            f"Cuplikan: {snippet[:700] or '-'}"
+        )
+    citations_block = "\n\n".join(source_lines) or "(tidak ada)"
+    coverage_rule = coverage_instruction(source_items)
 
     return [
         {"role": "system", "content": MANAGER_SYNTHESIZER_SYSTEM},
@@ -119,8 +173,11 @@ def manager_synthesizer_messages(
         {"role": "user", "content": (
             f"Pertanyaan investor: {question}\n\n"
             f"{chr(10).join(parts)}\n\n"
-            f"Sumber:\n{citations_block}\n\n"
-            f"Tulis jawaban final terpadu."
+            f"Sumber retrieval bernomor:\n{citations_block}\n\n"
+            f"Kebijakan cakupan evidence:\n{coverage_rule}\n\n"
+            "Tulis jawaban final terpadu dengan paragraf pendek dan struktur Markdown. "
+            "Tempatkan nomor sitasi langsung setelah klaim yang didukung. "
+            "Jika sumber tidak tersedia, jangan tampilkan nomor sitasi."
         )},
     ]
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import uuid
 from dataclasses import dataclass, field
 from typing import AsyncIterator
@@ -16,9 +17,31 @@ from app.core.agent.manager_agent import (
     synthesize_answer,
 )
 from app.core.agent.news_agent import run_news_agent
+from app.core.agent.response_formatter import format_rag_response
+from app.core.agent.evidence_policy import no_evidence_answer, source_coverage
 from app.services.database.graphrag_engine import GraphRAGEngine
+from app.utils.logger import get_logger
 
 HISTORY_TURNS = 3
+logger = get_logger("stockgraph.retrieval")
+
+
+def _dedupe_sources(items: list[dict[str, str]]) -> list[dict[str, str]]:
+    seen: set[str] = set()
+    output: list[dict[str, str]] = []
+    for item in items:
+        key = (
+            item.get("source_id")
+            or item.get("url")
+            or item.get("title")
+            or item.get("snippet")
+            or ""
+        ).strip().lower()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        output.append(item)
+    return output[:8]
 
 
 @dataclass
@@ -71,7 +94,13 @@ class Orchestrator:
         year: int,
         agents: list[str],
         history: list[ChatMessage],
-    ) -> tuple[dict[str, str], list[str]]:
+    ) -> tuple[
+        dict[str, str],
+        list[str],
+        list[dict[str, str]],
+        dict[str, dict],
+        list[str],
+    ]:
         tasks = []
         if "news" in agents:
             tasks.append(("news", run_news_agent(question, year, history, self._engine)))
@@ -82,6 +111,9 @@ class Orchestrator:
 
         sub_answers: dict[str, str] = {}
         sub_citations: list[str] = []
+        sub_sources: list[dict[str, str]] = []
+        diagnostics: dict[str, dict] = {}
+        graph_paths: list[str] = []
         for (name, _), result in zip(tasks, results):
             if isinstance(result, Exception):
                 sub_answers[name] = f"[error: {result}]"
@@ -90,28 +122,50 @@ class Orchestrator:
             sub_answers[name] = answer
             if isinstance(ctx, AgentContext):
                 sub_citations.extend(ctx.citations)
+                sub_sources.extend(ctx.sources)
+                diagnostics[name] = ctx.diagnostics
+                graph_paths.extend(ctx.graph_paths)
 
-        return sub_answers, list(dict.fromkeys(sub_citations))[:8]
+        return (
+            sub_answers,
+            list(dict.fromkeys(sub_citations))[:8],
+            _dedupe_sources(sub_sources),
+            diagnostics,
+            list(dict.fromkeys(graph_paths))[:16],
+        )
 
     async def run(self, session_id: str, question: str) -> dict:
         """Run the full flow without token streaming."""
         history = self.sessions.history(session_id)
         plan = await manager_plan(question, history, self._engine.available_years)
-        sub_answers, sub_citations = await self._run_specialists(
+        sub_answers, sub_citations, sub_sources, diagnostics, graph_paths = await self._run_specialists(
             question,
             plan.year,
             plan.agents,
             history,
         )
-        messages = manager_synthesizer_messages(question, history, sub_answers, sub_citations)
-        final_answer = await synthesize_answer(messages)
+        if not sub_sources:
+            final_answer = no_evidence_answer(question)
+        else:
+            messages = manager_synthesizer_messages(
+                question, history, sub_answers, sub_citations, sub_sources
+            )
+            final_answer = await synthesize_answer(messages)
         self.sessions.append(session_id, question, final_answer)
+        formatted = format_rag_response(final_answer, sub_citations, sub_sources)
+        diagnostic_summary = self._diagnostic_summary(
+            question, diagnostics, graph_paths, sub_sources
+        )
         return {
             "plan": plan,
             "target_year": plan.year,
             "sub_answers": sub_answers,
             "sub_citations": sub_citations,
+            "sources": sub_sources,
+            "diagnostics": diagnostic_summary,
+            "graph_paths": graph_paths,
             "final_answer": final_answer,
+            **formatted,
         }
 
     async def run_stream(
@@ -123,31 +177,83 @@ class Orchestrator:
         history = self.sessions.history(session_id)
 
         try:
+            yield {
+                "type": "progress",
+                "stage": "question_understanding",
+                "status": "running",
+                "label": "Memahami pertanyaan Anda",
+            }
             plan = await manager_plan(question, history, self._engine.available_years)
+            yield {
+                "type": "progress",
+                "stage": "question_understanding",
+                "status": "completed",
+                "label": "Memahami pertanyaan Anda",
+            }
+            yield {
+                "type": "progress",
+                "stage": "entity_resolution",
+                "status": "completed",
+                "label": "Mengidentifikasi emiten dan konteks analisis",
+            }
             yield {
                 "type": "plan",
                 "agents": plan.agents,
                 "year": plan.year,
-                "rationale": plan.rationale,
             }
 
             tasks = []
             if "news" in plan.agents:
+                yield {
+                    "type": "progress",
+                    "stage": "news_retrieval",
+                    "status": "running",
+                    "label": "Mencari berita yang relevan",
+                }
                 yield {"type": "agent_start", "agent": "news"}
                 tasks.append(("news", run_news_agent(question, plan.year, history, self._engine)))
             if "financial" in plan.agents:
+                yield {
+                    "type": "progress",
+                    "stage": "financial_retrieval",
+                    "status": "running",
+                    "label": "Menelusuri laporan keuangan IDX",
+                }
                 yield {"type": "agent_start", "agent": "financial"}
                 tasks.append((
                     "financial",
                     run_financial_agent(question, plan.year, history, self._engine),
                 ))
 
+            yield {
+                "type": "progress",
+                "stage": "graph_traversal",
+                "status": "running",
+                "label": "Menghubungkan informasi pada knowledge graph",
+            }
             results = await asyncio.gather(*(task for _, task in tasks), return_exceptions=True)
             sub_answers: dict[str, str] = {}
             sub_citations: list[str] = []
+            sub_sources: list[dict[str, str]] = []
+            diagnostics: dict[str, dict] = {}
+            graph_paths: list[str] = []
             for (name, _), result in zip(tasks, results):
                 if isinstance(result, Exception):
                     sub_answers[name] = f"[error: {result}]"
+                    yield {
+                        "type": "progress",
+                        "stage": (
+                            "financial_retrieval"
+                            if name == "financial"
+                            else "news_retrieval"
+                        ),
+                        "status": "failed",
+                        "label": (
+                            "Menelusuri laporan keuangan IDX"
+                            if name == "financial"
+                            else "Mencari berita yang relevan"
+                        ),
+                    }
                     yield {"type": "agent_done", "agent": name, "preview": str(result)[:120]}
                     continue
 
@@ -155,18 +261,104 @@ class Orchestrator:
                 sub_answers[name] = answer
                 if isinstance(ctx, AgentContext):
                     sub_citations.extend(ctx.citations)
+                    sub_sources.extend(ctx.sources)
+                    diagnostics[name] = ctx.diagnostics
+                    graph_paths.extend(ctx.graph_paths)
+                yield {
+                    "type": "progress",
+                    "stage": (
+                        "financial_retrieval"
+                        if name == "financial"
+                        else "news_retrieval"
+                    ),
+                    "status": "completed",
+                    "label": (
+                        "Menelusuri laporan keuangan IDX"
+                        if name == "financial"
+                        else "Mencari berita yang relevan"
+                    ),
+                }
                 yield {
                     "type": "agent_done",
                     "agent": name,
                     "preview": answer[:160] + ("..." if len(answer) > 160 else ""),
                 }
 
+            yield {
+                "type": "progress",
+                "stage": "graph_traversal",
+                "status": "completed",
+                "label": "Menghubungkan informasi pada knowledge graph",
+            }
+            yield {
+                "type": "progress",
+                "stage": "relevance_validation",
+                "status": "running",
+                "label": "Memeriksa kualitas dan relevansi sumber",
+            }
             sub_citations = list(dict.fromkeys(sub_citations))[:8]
+            sub_sources = _dedupe_sources(sub_sources)
+            graph_paths = list(dict.fromkeys(graph_paths))[:16]
+            diagnostic_summary = self._diagnostic_summary(
+                question, diagnostics, graph_paths, sub_sources
+            )
+            yield {
+                "type": "progress",
+                "stage": "relevance_validation",
+                "status": "completed",
+                "label": (
+                    "Sumber terbatas ditemukan; menggunakan evidence yang tersedia"
+                    if not sub_sources
+                    else "Memeriksa kualitas dan relevansi sumber"
+                ),
+            }
+
+            if not sub_sources:
+                yield {
+                    "type": "progress",
+                    "stage": "answer_generation",
+                    "status": "running",
+                    "label": "Menyusun analisis berbasis evidence",
+                }
+                final_answer = no_evidence_answer(question)
+                self.sessions.append(session_id, question, final_answer)
+                formatted = format_rag_response(final_answer, [], [])
+                yield {
+                    "type": "progress",
+                    "stage": "answer_generation",
+                    "status": "completed",
+                    "label": "Menyusun analisis berbasis evidence",
+                }
+                yield {
+                    "type": "progress",
+                    "stage": "citation_preparation",
+                    "status": "completed",
+                    "label": "Menyiapkan citation sumber",
+                }
+                yield {
+                    "type": "final",
+                    "answer": final_answer,
+                    "citations": [],
+                    **formatted,
+                    "year": plan.year,
+                    "agents": plan.agents,
+                    "diagnostics": diagnostic_summary,
+                    "graph_paths": graph_paths,
+                }
+                return
+
+            yield {
+                "type": "progress",
+                "stage": "answer_generation",
+                "status": "running",
+                "label": "Menyusun analisis berbasis evidence",
+            }
             messages = manager_synthesizer_messages(
                 question,
                 history,
                 sub_answers,
                 sub_citations,
+                sub_sources,
             )
 
             full_answer_parts: list[str] = []
@@ -176,18 +368,95 @@ class Orchestrator:
 
             final_answer = "".join(full_answer_parts).strip()
             self.sessions.append(session_id, question, final_answer)
+            yield {
+                "type": "progress",
+                "stage": "answer_generation",
+                "status": "completed",
+                "label": "Menyusun analisis berbasis evidence",
+            }
+            yield {
+                "type": "progress",
+                "stage": "citation_preparation",
+                "status": "running",
+                "label": "Menyiapkan citation sumber",
+            }
+            formatted = format_rag_response(final_answer, sub_citations, sub_sources)
+            yield {
+                "type": "progress",
+                "stage": "citation_preparation",
+                "status": "completed",
+                "label": "Menyiapkan citation sumber",
+            }
 
             yield {
                 "type": "final",
                 "answer": final_answer,
                 "citations": sub_citations,
+                **formatted,
                 "year": plan.year,
                 "agents": plan.agents,
+                "diagnostics": diagnostic_summary,
+                "graph_paths": graph_paths,
             }
 
         except Exception as exc:
             yield {"type": "error", "message": f"{type(exc).__name__}: {exc}"}
 
+    @staticmethod
+    def _diagnostic_summary(
+        question: str,
+        agent_diagnostics: dict[str, dict],
+        graph_paths: list[str],
+        sources: list[dict[str, str]],
+    ) -> dict:
+        merged = {
+            "query": question,
+            "ticker_detected": "",
+            "entity_resolved": False,
+            "news_found": 0,
+            "news_after_relevance_filter": 0,
+            "financial_reports_found": 0,
+            "financial_chunks_found": 0,
+            "graph_nodes_found": 0,
+            "graph_edges_traversed": 0,
+            "vector_chunks_retrieved": 0,
+            "retrieval_strategy_used": [],
+            "fallback_reason": None,
+            "corpus_status": "unknown",
+            "graph_ingestion_status": "unknown",
+            "retrieval_status": "unknown",
+        }
+        for values in agent_diagnostics.values():
+            merged["ticker_detected"] = merged["ticker_detected"] or values.get(
+                "ticker_detected", ""
+            )
+            merged["entity_resolved"] = bool(
+                merged["entity_resolved"] or values.get("entity_resolved")
+            )
+            for key in (
+                "news_found",
+                "news_after_relevance_filter",
+                "financial_reports_found",
+                "financial_chunks_found",
+                "graph_nodes_found",
+                "graph_edges_traversed",
+                "vector_chunks_retrieved",
+            ):
+                merged[key] = max(int(merged[key]), int(values.get(key) or 0))
+            for strategy in values.get("retrieval_strategy_used", []):
+                if strategy not in merged["retrieval_strategy_used"]:
+                    merged["retrieval_strategy_used"].append(strategy)
+            for key in ("corpus_status", "graph_ingestion_status", "retrieval_status"):
+                value = values.get(key)
+                if value and value != "unknown":
+                    merged[key] = value
+        coverage = source_coverage(sources)
+        if not coverage["news"] and not coverage["financial"]:
+            merged["fallback_reason"] = "no_valid_retrieved_sources"
+        merged["source_coverage"] = coverage
+        merged["graph_paths_found"] = len(graph_paths)
+        logger.info("retrieval_diagnostics=%s", json.dumps(merged, ensure_ascii=False))
+        return merged
+
 
 __all__ = ["Orchestrator", "SessionStore", "Session", "HISTORY_TURNS"]
-

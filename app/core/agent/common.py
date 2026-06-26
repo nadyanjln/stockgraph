@@ -30,6 +30,9 @@ class AgentContext:
 
     snippets: list[str] = field(default_factory=list)
     citations: list[str] = field(default_factory=list)
+    sources: list[dict[str, str]] = field(default_factory=list)
+    graph_paths: list[str] = field(default_factory=list)
+    diagnostics: dict = field(default_factory=dict)
 
 
 _client: AsyncOpenAI | None = None
@@ -107,4 +110,3 @@ __all__ = [
     "stream_chat",
     "trim_history",
 ]
-

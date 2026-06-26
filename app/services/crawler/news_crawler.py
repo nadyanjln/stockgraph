@@ -2,6 +2,7 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from threading import Lock
 from urllib.parse import urlparse
 
 import feedparser
@@ -11,6 +12,10 @@ from googlenewsdecoder import gnewsdecoder
 ALLOWED_DOMAINS = {
     "bisnis.com",
     "cnbcindonesia.com",
+    "kontan.co.id",
+    "antaranews.com",
+    "bloombergtechnoz.com",
+    "idxchannel.com",
 }
 
 
@@ -26,6 +31,9 @@ class Article:
 
 def _root_domain(url: str) -> str:
     host = urlparse(url).hostname or ""
+    for domain in ALLOWED_DOMAINS:
+        if host == domain or host.endswith(f".{domain}"):
+            return domain
     parts = host.split(".")
     return ".".join(parts[-2:]) if len(parts) >= 2 else host
 
@@ -57,7 +65,13 @@ def _extract_text(url: str) -> str | None:
     return trafilatura.extract(downloaded, include_comments=False, include_tables=False)
 
 
-def _crawl_single_query(query: str, stock_code: str, max_articles: int) -> list[Article]:
+def _crawl_single_query(
+    query: str,
+    stock_code: str,
+    max_articles: int,
+    diagnostics: dict[str, int] | None = None,
+    lock: Lock | None = None,
+) -> list[Article]:
     """Crawl satu RSS query Google News, kembalikan artikel yang lolos filter sumber."""
     articles: list[Article] = []
     rss_url = (
@@ -67,15 +81,27 @@ def _crawl_single_query(query: str, stock_code: str, max_articles: int) -> list[
     feed = feedparser.parse(rss_url)
 
     for entry in feed.entries:
+        if diagnostics is not None:
+            with lock or Lock():
+                diagnostics["feed_entries"] = diagnostics.get("feed_entries", 0) + 1
         if len(articles) >= max_articles:
             break
         if not _is_allowed_source(entry):
+            if diagnostics is not None:
+                with lock or Lock():
+                    diagnostics["source_rejected"] = diagnostics.get("source_rejected", 0) + 1
             continue
         real_url = _decode_google_url(entry.link)
         if not real_url:
+            if diagnostics is not None:
+                with lock or Lock():
+                    diagnostics["decode_failed"] = diagnostics.get("decode_failed", 0) + 1
             continue
         text = _extract_text(real_url)
         if not text:
+            if diagnostics is not None:
+                with lock or Lock():
+                    diagnostics["parse_failed"] = diagnostics.get("parse_failed", 0) + 1
             continue
         articles.append(Article(
             stock_code=stock_code,
@@ -85,6 +111,9 @@ def _crawl_single_query(query: str, stock_code: str, max_articles: int) -> list[
             published=entry.get("published", ""),
             text=text,
         ))
+        if diagnostics is not None:
+            with lock or Lock():
+                diagnostics["articles_extracted"] = diagnostics.get("articles_extracted", 0) + 1
         time.sleep(0.5)
 
     return articles
@@ -94,6 +123,7 @@ def crawl_by_keywords(
     keywords: list[str],
     stock_code: str,
     max_total: int = 6,
+    diagnostics: dict[str, int] | None = None,
 ) -> list[Article]:
     """Crawl Google News secara paralel untuk beberapa keyword, deduplikasi per URL.
 
@@ -112,10 +142,18 @@ def crawl_by_keywords(
     seen_urls: set[str] = set()
     seen_content: set[str] = set()
     all_articles: list[Article] = []
+    diagnostics_lock = Lock()
 
     with ThreadPoolExecutor(max_workers=min(3, len(keywords))) as executor:
         futures = {
-            executor.submit(_crawl_single_query, kw, stock_code, max_per_query): kw
+            executor.submit(
+                _crawl_single_query,
+                kw,
+                stock_code,
+                max_per_query,
+                diagnostics,
+                diagnostics_lock,
+            ): kw
             for kw in keywords
         }
         for future in as_completed(futures):
@@ -127,10 +165,16 @@ def crawl_by_keywords(
                         seen_urls.add(art.url)
                         seen_content.add(fingerprint)
                         all_articles.append(art)
+                    elif diagnostics is not None:
+                        with diagnostics_lock:
+                            diagnostics["deduplicated"] = diagnostics.get("deduplicated", 0) + 1
             except Exception as exc:
                 print(f"[crawl] ERROR keyword '{kw}': {exc}")
 
     result = all_articles[:max_total]
+    if diagnostics is not None:
+        diagnostics["articles_returned"] = len(result)
+        diagnostics["queries"] = len(keywords)
     print(f"[{stock_code}] {len(result)} artikel unik dari {len(keywords)} keyword")
     return result
 

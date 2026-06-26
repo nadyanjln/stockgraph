@@ -3,3 +3,10 @@
 
 venv
 env
+
+# local run logs
+backend_run.log
+frontend_run.log
+__pycache__/
+*.pyc
+.stockgraph_graph.json
