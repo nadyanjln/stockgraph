@@ -65,6 +65,21 @@ def _sentiment(articles: list[Article]) -> tuple[str, float | None, str]:
     )
 
 
+def _graph_counts_from_provenance(tickers: list[str], graph_stats: dict) -> tuple[int, int]:
+    fallback_nodes = sum(int(getattr(stat, "nodes_created", 0) or 0) for stat in graph_stats.values())
+    fallback_edges = sum(int(getattr(stat, "edges_created", 0) or 0) for stat in graph_stats.values())
+    try:
+        from app.services.database.graph_builder import explore_provenance_graph
+
+        graph = explore_provenance_graph(stock_codes=tickers, limit=300)
+        analytics = graph.get("analytics", {})
+        node_count = int(analytics.get("node_count") or 0)
+        edge_count = int(analytics.get("relationship_count") or 0)
+        return (node_count or fallback_nodes, edge_count or fallback_edges)
+    except Exception:
+        return fallback_nodes, fallback_edges
+
+
 def build_conversation_insight_snapshot(
     checked: dict[str, list[CheckedResult]],
     articles: dict[str, list[Article]],
@@ -133,9 +148,13 @@ def build_conversation_insight_snapshot(
     sentiment, sentiment_score, sentiment_reason = _sentiment(valid_articles)
     dates = sorted(article.published for article in valid_articles if article.published)
     now = datetime.now(UTC).isoformat()
-    snapshot_basis = "|".join([ticker, *source_ids])
-    graph_node_count = sum(int(stat.nodes_created or 0) for stat in graph_stats.values())
-    graph_relation_count = sum(int(stat.edges_created or 0) for stat in graph_stats.values())
+    graph_node_count, graph_relation_count = _graph_counts_from_provenance(tickers, graph_stats)
+    snapshot_basis = "|".join([
+        ticker,
+        *source_ids,
+        f"nodes:{graph_node_count}",
+        f"relations:{graph_relation_count}",
+    ])
     company_name = next(
         (data.company_name for data in financial.values() if data.company_name),
         "",

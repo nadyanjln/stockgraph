@@ -202,7 +202,7 @@ def parse_pdf(
     ticker: str = "",
     company: str = "",
 ) -> dict:
-    """Parse laporan keuangan PDF using PyMuPDF text layer only."""
+    """Parse laporan keuangan PDF using PaddleOCR document extraction."""
     extraction = extract_pdf_pages(
         pdf_source,
         source_file=source_file,
@@ -222,7 +222,7 @@ def parse_pdf(
     metrics["tables"] = tables[:15]
     metrics["raw_text"] = full_text
     metrics["source_file"] = extraction.source_file
-    metrics["metrics_extraction_method"] = "pymupdf"
+    metrics["metrics_extraction_method"] = "paddleocr"
     metrics["page_extractions"] = [page.to_dict() for page in extraction.pages]
     metrics["native_text_length"] = sum(
         len(page.text.strip())
@@ -245,7 +245,7 @@ def parse_pdf(
         metrics["extraction_errors"].append({
             "source_file": extraction.source_file,
             "page_number": None,
-            "extraction_method": "pymupdf",
+            "extraction_method": "paddleocr",
             "error": extraction.error,
         })
     return metrics

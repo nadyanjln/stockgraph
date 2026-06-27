@@ -32,6 +32,22 @@ export function isDisplayableInsightEntity(entity: InsightEntity): boolean {
   ].includes(label.toLocaleLowerCase("id-ID"));
 }
 
+function insightSnapshotEquivalent(
+  current: ConversationInsightSnapshot,
+  incoming: ConversationInsightSnapshot,
+): boolean {
+  return current.ticker === incoming.ticker
+    && current.source_snapshot_id === incoming.source_snapshot_id
+    && current.source_count === incoming.source_count
+    && current.news_source_count === incoming.news_source_count
+    && current.financial_report_count === incoming.financial_report_count
+    && current.graph_node_count === incoming.graph_node_count
+    && current.graph_relation_count === incoming.graph_relation_count
+    && current.sentiment === incoming.sentiment
+    && current.entities.map((entity) => entity.id).join("|")
+      === incoming.entities.map((entity) => entity.id).join("|");
+}
+
 export function mergeConversationInsightSnapshot(
   current: ConversationInsightSnapshot | null,
   incoming: ConversationInsightSnapshot,
@@ -49,8 +65,7 @@ export function mergeConversationInsightSnapshot(
   };
   if (
     current
-    && current.ticker === normalizedIncoming.ticker
-    && current.source_snapshot_id === normalizedIncoming.source_snapshot_id
+    && insightSnapshotEquivalent(current, normalizedIncoming)
   ) {
     return {
       snapshot: current,
@@ -72,6 +87,9 @@ export function mergeConversationInsightSnapshot(
     reason: current
       ? newSourceCount > 0
         ? `Diperbarui karena ${newSourceCount} sumber baru ditemukan`
+        : current.graph_node_count !== normalizedIncoming.graph_node_count
+          || current.graph_relation_count !== normalizedIncoming.graph_relation_count
+          ? "Diperbarui karena graph hasil ingestion berubah"
         : "Diperbarui karena scope analisis berubah"
       : "Snapshot insight dibuat dari evidence tervalidasi",
   };

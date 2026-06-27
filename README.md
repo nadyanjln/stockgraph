@@ -107,7 +107,7 @@ Batasan scope:
 - Nama perusahaan lengkap sebagian diambil secara dinamis dari yfinance.
 - Data berita dan laporan keuangan bergantung pada ketersediaan sumber saat
   pipeline dijalankan.
-- Sistem belum memproses PDF scan menggunakan OCR pada versi saat ini.
+- Laporan keuangan PDF diproses dengan PaddleOCR pada saat ingestion.
 
 ## System Architecture
 
@@ -119,7 +119,7 @@ flowchart LR
     API --> PIPE[Pipeline API]
     PIPE --> NEWS[Google News RSS + trafilatura]
     PIPE --> FIN[yfinance + IDX PDF]
-    FIN --> PDF[PyMuPDF PDF Extraction]
+    FIN --> PDF[PaddleOCR PDF Extraction]
     PIPE --> EXT[OpenAI Entity/Relation Extraction + Relevance Check]
     EXT --> GRAG[GraphRAG-SDK + LiteLLM]
     GRAG --> FALKOR[FalkorDB Knowledge Graph]
@@ -137,7 +137,7 @@ Komponen utama:
 - Auth/session user: Supabase Auth dan PostgreSQL.
 - GraphRAG: GraphRAG-SDK dengan LiteLLM.
 - Graph database: FalkorDB.
-- PDF extraction: PyMuPDF.
+- PDF extraction: PaddleOCR dan PaddlePaddle runtime.
 - News crawling: Google News RSS, feedparser, googlenewsdecoder, trafilatura.
 - LLM provider: OpenAI SDK dan LiteLLM.
 
@@ -151,7 +151,7 @@ dependency/transitive dependency.
 2. Backend mengambil data fundamental dari yfinance.
 3. Jika `try_idx_pdf` aktif, backend mencoba mengambil PDF laporan keuangan IDX
    untuk tahun historical yang tersedia.
-4. PDF laporan keuangan diekstrak menggunakan PyMuPDF dan metadata halaman
+4. PDF laporan keuangan diekstrak menggunakan PaddleOCR dan metadata halaman
    disimpan.
 5. LLM membuat keyword pencarian berita berdasarkan ticker dan pertanyaan.
 6. Google News RSS dicrawl, URL Google News didecode, konten artikel diekstrak,
@@ -173,29 +173,36 @@ dependency/transitive dependency.
 
 ## PDF Extraction
 
-The current version uses PyMuPDF for native PDF text extraction. OCR support for
-scanned PDF documents is not currently implemented.
+StockGraph menggunakan PaddleOCR untuk mengekstrak teks dan struktur dokumen
+dari laporan keuangan PDF. Hasil ekstraksi disimpan per halaman bersama metadata
+dokumen untuk mendukung retrieval dan citation.
 
 Implementasi PDF extraction saat ini:
 
-- Library utama: PyMuPDF (`fitz`).
-- Dokumen dibuka menggunakan `fitz.open(...)`.
-- Teks halaman diekstrak dengan `page.get_text("text", sort=True)`.
+- Library utama: PaddleOCR `PPStructureV3`.
+- PaddleOCR diinisialisasi secara lazy dan instance pipeline digunakan ulang
+  dalam proses/worker yang sama.
+- Input PDF dapat berupa path file atau bytes; bytes disimpan sementara sebagai
+  file PDF lokal untuk diproses oleh PaddleOCR.
 - Whitespace dan baris kosong dibersihkan sebelum teks dipakai.
 - Hasil ekstraksi disimpan per halaman.
 - Metadata halaman mencakup `source_file`, `page_number`,
-  `extraction_method=pymupdf`, `document_type`, `document_year`, `ticker`,
-  `company`, `needs_review`, dan `extraction_warning`.
-- Halaman kosong atau terlalu pendek ditandai `needs_review=True`; pipeline
-  tidak menjalankan OCR fallback.
-- Jika satu halaman gagal diekstrak, halaman tersebut diberi warning/error dan
+  `extraction_method=paddleocr`, `document_type`, `document_year`,
+  `document_period`, `ticker`, `company`, `ocr_confidence`, `needs_review`, dan
+  `extraction_warning`.
+- Pipeline memanfaatkan document layout dan table parsing yang tersedia pada
+  PaddleOCR untuk membantu mempertahankan struktur laporan keuangan.
+- Tabel yang berhasil dibaca dikonversi menjadi Markdown/text terstruktur untuk
+  chunking dan retrieval.
+- Halaman kosong, terlalu pendek, confidence rendah, atau struktur tabel yang
+  bermasalah ditandai `needs_review=True`.
+- Jika satu halaman gagal diparsing, halaman tersebut diberi warning/error dan
   halaman lain tetap diproses.
 - Jika satu PDF rusak, batch extraction tetap dapat memproses PDF berikutnya.
-- Jika tersedia pada versi PyMuPDF yang digunakan, `page.find_tables()` dipakai
-  secara best-effort untuk mendeteksi tabel dan mengubahnya menjadi markdown.
 
-Tidak ada import aktif PaddleOCR, PaddlePaddle, Tesseract, atau Hugging Face OCR
-pada pipeline PDF saat ini.
+Pipeline tidak menggunakan PyMuPDF, Tesseract, EasyOCR, atau layanan OCR cloud
+untuk ekstraksi laporan keuangan PDF. OCR hanya berjalan pada proses ingestion
+dokumen, bukan setiap user mengirim pertanyaan.
 
 ## Knowledge Graph
 
@@ -253,7 +260,7 @@ sebelum masuk ke graph/provenance registry.
 | LLM provider | OpenAI SDK | Agent chat, keyword extraction, entity/relation extraction, relevance check |
 | Embedding | `openai/text-embedding-3-small` | Embedding untuk GraphRAG-SDK |
 | Graph database | FalkorDB | Penyimpanan knowledge graph per tahun |
-| PDF extraction | PyMuPDF | Native text extraction dan table detection best-effort |
+| PDF extraction | PaddleOCR, PaddlePaddle | OCR, document layout parsing, dan table parsing best-effort |
 | News ingestion | feedparser, googlenewsdecoder, trafilatura | Google News RSS crawling dan article text extraction |
 | Financial data | yfinance, requests | Data fundamental `.JK` dan optional IDX PDF download |
 | Frontend testing | Vitest, Vue Test Utils | Unit test frontend |
@@ -273,7 +280,8 @@ stockgraph/
 │   │   ├── crawler/            # News and financial fetchers
 │   │   ├── database/           # GraphRAG engine, graph builder, evidence retrieval
 │   │   ├── ui/                 # Streamlit/legacy local UI server files
-│   │   ├── pdf_extractor.py    # PyMuPDF PDF extraction
+│   │   ├── paddleocr_service.py # PaddleOCR document extraction service
+│   │   ├── pdf_extractor.py    # Compatibility entry points for PDF extraction
 │   │   └── supabase_auth_service.py
 │   └── main.py                 # Unified FastAPI app
 ├── frontend/
@@ -321,6 +329,15 @@ pip install -r requirements.txt
 ```
 
 The full project dependencies are defined in `pyproject.toml`.
+
+PaddleOCR dependencies are part of the project dependency list:
+
+```bash
+uv add "paddleocr>=3.3.0" "paddlepaddle>=3.0.0"
+```
+
+PaddleOCR may download OCR/layout/table models on first use. This happens during
+explicit PDF ingestion, not on every chat request.
 
 ### 3. Configure environment variables
 
@@ -404,6 +421,13 @@ Only variable names are listed below.
 | `STOCKGRAPH_FINALIZE_TIMEOUT_SECONDS` | GraphRAG finalize timeout | Optional |
 | `STOCKGRAPH_REGISTRY` | Local registry path for available graph years | Optional |
 | `STOCKGRAPH_PROVENANCE_REGISTRY` | Local provenance registry path for evidence graph | Optional |
+| `STOCKGRAPH_PADDLEOCR_LANG` | PaddleOCR language/model option; default uses `en` for Latin text and numbers | Optional |
+| `STOCKGRAPH_PADDLEOCR_DEVICE` | Optional PaddleOCR device setting, such as CPU/GPU value supported by PaddleOCR | Optional |
+| `STOCKGRAPH_PADDLEOCR_USE_DOC_ORIENTATION` | Toggle PaddleOCR document orientation classification | Optional |
+| `STOCKGRAPH_PADDLEOCR_USE_DOC_UNWARPING` | Toggle PaddleOCR document unwarping | Optional |
+| `STOCKGRAPH_PADDLEOCR_USE_TEXTLINE_ORIENTATION` | Toggle PaddleOCR text line orientation | Optional |
+| `STOCKGRAPH_PADDLEOCR_USE_TABLE_RECOGNITION` | Toggle PaddleOCR table recognition | Optional |
+| `STOCKGRAPH_PADDLEOCR_USE_FORMULA_RECOGNITION` | Toggle PaddleOCR formula recognition | Optional |
 | `SUPABASE_URL` | Supabase project URL for backend token validation | Yes for auth |
 | `SUPABASE_ANON_KEY` | Supabase anon key for backend token validation | Yes for auth |
 | `SUPABASE_AUTH_TIMEOUT_SECONDS` | Supabase auth request timeout | Optional |
@@ -414,8 +438,9 @@ Only variable names are listed below.
 | `VITE_SUPABASE_URL` | Supabase URL used by frontend | Yes for frontend auth |
 | `VITE_SUPABASE_ANON_KEY` | Supabase anon key used by frontend | Yes for frontend auth |
 
-`HF_TOKEN` is not required by the current PDF extraction pipeline because OCR
-and Hugging Face OCR models are not used.
+`HF_TOKEN` is not required by StockGraph source code. If a third-party dependency
+or public model download flow asks for a Hugging Face token in a specific
+environment, configure it outside the repository and do not commit it.
 
 ## Usage
 
@@ -474,7 +499,12 @@ Most application endpoints require a valid Supabase-authenticated user.
 - Berita bergantung pada hasil Google News RSS, domain filter, dan artikel yang
   berhasil diekstrak.
 - PDF IDX tidak selalu tersedia untuk semua emiten dan tahun.
-- PDF scan atau gambar belum didukung tanpa OCR.
+- Kualitas OCR dipengaruhi kualitas scan, resolusi PDF, layout, dan struktur
+  tabel.
+- Dokumen dengan tabel kompleks atau scan berkualitas rendah dapat memerlukan
+  pemeriksaan ulang.
+- Angka dari hasil OCR diperlakukan sebagai teks sumber dan tetap perlu validasi
+  sebelum dipakai untuk keputusan finansial.
 - Kualitas entity dan relationship bergantung pada hasil ekstraksi model LLM.
 - Graph dan jawaban dapat berubah ketika sumber baru masuk atau pipeline
   dijalankan ulang.
@@ -515,9 +545,10 @@ secret di README, commit, atau log publik.
 
 ### PDF gagal diekstrak
 
-Pipeline PyMuPDF akan mencatat error pada PDF atau halaman yang bermasalah.
-Halaman kosong/terlalu pendek ditandai `needs_review=True`. PDF scan tidak
-diproses dengan OCR pada versi saat ini.
+Pipeline PaddleOCR akan mencatat error pada PDF atau halaman yang bermasalah.
+Halaman kosong, terlalu pendek, atau confidence rendah ditandai
+`needs_review=True`. Jika model belum tersedia secara lokal, PaddleOCR dapat
+mengunduh model pada penggunaan pertama.
 
 ### Frontend tidak dapat terhubung ke backend
 

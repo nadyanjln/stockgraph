@@ -6,3 +6,5 @@ psycopg2-binary>=2.9.9
 pydantic>=2.8.0
 python-dotenv>=1.0.1
 requests>=2.33.1
+paddleocr>=3.3.0
+paddlepaddle>=3.0.0
