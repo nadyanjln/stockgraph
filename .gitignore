@@ -52,3 +52,7 @@ __pycache__/
 *.pyc
 .stockgraph_graph.json
 >>>>>>> 290e5584905b63aa2eed29ba1a7a0a613de94f40
+
+.env
+.env.*
+!.env.example

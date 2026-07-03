@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import AppLeftSidebar from "@/components/common/AppLeftSidebar.vue";
 import AppMessageComposer from "@/components/common/AppMessageComposer.vue";
 import AnalysisProgress from "@/components/chat/AnalysisProgress.vue";
@@ -15,6 +15,8 @@ import { renderMarkdownToHtml } from "@/utils/markdown";
 import { isDisplayableInsightEntity } from "@/utils/insightSnapshot";
 
 const { sidebarWidth } = useSidebar();
+const sidebarDrawerOpen = ref(false);
+const insightDrawerOpen = ref(false);
 const {
   state,
   followUpQuestion,
@@ -62,6 +64,30 @@ function openSourceFromList(messageId: string, sourceIndex: number) {
 
 function closeCitation() {
   activeCitation.value = null;
+}
+
+function openSidebarDrawer() {
+  sidebarDrawerOpen.value = true;
+  insightDrawerOpen.value = false;
+}
+
+function closeSidebarDrawer() {
+  sidebarDrawerOpen.value = false;
+}
+
+function openInsightDrawer() {
+  insightDrawerOpen.value = true;
+  sidebarDrawerOpen.value = false;
+}
+
+function closeInsightDrawer() {
+  insightDrawerOpen.value = false;
+}
+
+function handleResponsiveEscape(event: KeyboardEvent) {
+  if (event.key !== "Escape") return;
+  closeSidebarDrawer();
+  closeInsightDrawer();
 }
 
 const sentimentLabel = computed(() => {
@@ -606,16 +632,67 @@ watch(primaryStockCode, () => {
   void fetchKeyFinancials();
 }, { immediate: true });
 
+onMounted(() => {
+  window.addEventListener("keydown", handleResponsiveEscape);
+});
+
 onBeforeUnmount(() => {
+  window.removeEventListener("keydown", handleResponsiveEscape);
   if (scrollFrame) window.cancelAnimationFrame(scrollFrame);
 });
 </script>
 
 <template>
   <main class="result-screen" :style="{ '--sidebar-w': sidebarWidth }">
-    <AppLeftSidebar />
+    <button
+      v-if="sidebarDrawerOpen"
+      type="button"
+      class="drawer-backdrop sidebar-backdrop"
+      aria-label="Tutup riwayat percakapan"
+      @click="closeSidebarDrawer"
+    />
+    <button
+      v-if="insightDrawerOpen"
+      type="button"
+      class="drawer-backdrop insight-backdrop"
+      aria-label="Tutup insight"
+      @click="closeInsightDrawer"
+    />
+
+    <div id="conversation-sidebar" class="sidebar-shell" :class="{ 'is-open': sidebarDrawerOpen }">
+      <button
+        type="button"
+        class="drawer-close sidebar-close"
+        aria-label="Tutup riwayat percakapan"
+        @click="closeSidebarDrawer"
+      >
+        <i class="pi pi-times" />
+      </button>
+      <AppLeftSidebar />
+    </div>
 
     <section class="main-stage">
+      <header class="mobile-result-toolbar" aria-label="Navigasi hasil analisis">
+        <button
+          type="button"
+          aria-controls="conversation-sidebar"
+          :aria-expanded="sidebarDrawerOpen"
+          @click="openSidebarDrawer"
+        >
+          <i class="pi pi-bars" />
+          Riwayat
+        </button>
+        <button
+          type="button"
+          aria-controls="insight-panel"
+          :aria-expanded="insightDrawerOpen"
+          @click="openInsightDrawer"
+        >
+          <i class="pi pi-chart-line" />
+          Insight
+        </button>
+      </header>
+
       <div class="chat-canvas">
         <div ref="scrollRef" class="chat-scroll">
           <p v-if="!state.messages.length" class="empty-hint">
@@ -701,7 +778,13 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <aside class="right-panel">
+    <aside id="insight-panel" class="right-panel" :class="{ 'is-open': insightDrawerOpen }">
+      <div class="right-panel-mobile-head">
+        <strong>Insight & Graph</strong>
+        <button type="button" aria-label="Tutup insight" @click="closeInsightDrawer">
+          <i class="pi pi-times" />
+        </button>
+      </div>
       <section class="panel-card">
         <div class="insight-heading">
           <h3>Insight Cepat</h3>
@@ -856,6 +939,25 @@ onBeforeUnmount(() => {
   color: var(--text-main);
   overflow: hidden;
   transition: grid-template-columns 0.2s ease;
+}
+
+.sidebar-shell {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+
+.sidebar-shell :deep(.left-rail) {
+  flex: 1;
+  min-height: 0;
+}
+
+.drawer-backdrop,
+.drawer-close,
+.mobile-result-toolbar,
+.right-panel-mobile-head {
+  display: none;
 }
 
 .main-stage {
@@ -1469,6 +1571,27 @@ onBeforeUnmount(() => {
   padding-right: 6px;
 }
 
+.right-panel-mobile-head {
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #f4f7fe;
+}
+
+.right-panel-mobile-head button,
+.drawer-close {
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(185, 205, 241, 0.14);
+  border-radius: 12px;
+  align-items: center;
+  justify-content: center;
+  place-items: center;
+  color: #dce8fb;
+  background: rgba(255, 255, 255, 0.07);
+  cursor: pointer;
+}
+
 .chat-scroll,
 .right-panel {
   scrollbar-width: thin;
@@ -1914,7 +2037,7 @@ onBeforeUnmount(() => {
   opacity: 0.7;
 }
 
-@media (max-width: 1280px) {
+@media (max-width: 1279px) {
   .result-screen {
     grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
   }
@@ -1926,16 +2049,100 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1023px) {
   .result-screen {
     grid-template-columns: 1fr;
     padding: 12px;
+    overflow: hidden;
+  }
+
+  .sidebar-shell {
+    position: fixed;
+    z-index: 260;
+    inset: 12px auto 12px 12px;
+    width: min(360px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
+    transform: translateX(calc(-100% - 18px));
+    transition: transform 0.22s ease;
+    filter: drop-shadow(18px 0 40px rgba(0, 0, 0, 0.42));
+  }
+
+  .sidebar-shell.is-open {
+    transform: translateX(0);
+  }
+
+  .sidebar-shell :deep(.left-rail) {
+    border-radius: 18px;
+    width: 100%;
+    min-height: 100%;
+  }
+
+  .drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 250;
+    display: block;
+    border: 0;
+    padding: 0;
+    background: rgba(7, 10, 16, 0.56);
+    backdrop-filter: blur(4px);
+    cursor: default;
+  }
+
+  .drawer-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 3;
+  }
+
+  .sidebar-close {
+    display: grid;
+  }
+
+  .mobile-result-toolbar {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .mobile-result-toolbar button {
+    min-width: 0;
+    min-height: 42px;
+    border: 1px solid rgba(153, 174, 211, 0.42);
+    border-radius: 12px;
+    padding: 0 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: #1f2a44;
+    background: rgba(255, 255, 255, 0.82);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 10px 22px rgba(73, 96, 135, 0.12);
+  }
+
+  .main-stage {
+    height: calc(100dvh - 24px);
+    padding: 14px;
+    border-radius: 18px;
   }
 
   .chat-canvas {
-    min-height: 520px;
+    min-height: 0;
     border-radius: 12px;
-    padding: 10px;
+  }
+
+  .chat-scroll {
+    gap: 12px;
+    padding: 0 2px 8px;
   }
 
   .bubble {
@@ -1991,7 +2198,44 @@ onBeforeUnmount(() => {
   }
 
   .right-panel {
+    position: fixed;
+    z-index: 260;
+    top: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: min(430px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
+    display: grid;
     grid-template-columns: 1fr;
+    grid-auto-rows: max-content;
+    transform: translateX(calc(100% + 18px));
+    transition: transform 0.22s ease;
+    padding: 12px;
+    border: 1px solid rgba(145, 174, 226, 0.18);
+    border-radius: 18px;
+    background: linear-gradient(180deg, rgba(23, 26, 34, 0.98), rgba(14, 17, 24, 0.995));
+    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.42);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .right-panel.is-open {
+    transform: translateX(0);
+  }
+
+  .right-panel-mobile-head {
+    display: flex;
+    position: sticky;
+    top: -12px;
+    z-index: 2;
+    margin: -12px -12px 0;
+    padding: 12px;
+    background: rgba(18, 21, 29, 0.96);
+    backdrop-filter: blur(10px);
+  }
+
+  .right-panel-mobile-head button {
+    display: grid;
   }
 
   .source-list {
@@ -1999,11 +2243,96 @@ onBeforeUnmount(() => {
   }
 }
 
+@media (max-width: 767px) {
+  .result-screen {
+    padding: 8px;
+  }
+
+  .main-stage {
+    height: calc(100dvh - 16px);
+    padding: 10px;
+    border-radius: 16px;
+  }
+
+  .mobile-result-toolbar {
+    gap: 8px;
+  }
+
+  .mobile-result-toolbar button {
+    flex: 1;
+    min-height: 40px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
+  .chat-scroll {
+    scroll-padding-bottom: 110px;
+  }
+
+  .assistant-bubble {
+    padding: 12px;
+  }
+
+  .user-bubble {
+    max-width: 94%;
+  }
+
+  .composer-wrap {
+    margin-inline: -2px;
+    padding: 8px 10px;
+    border-radius: 14px;
+  }
+
+  .right-panel,
+  .sidebar-shell {
+    inset-block: 8px;
+  }
+
+  .sidebar-shell {
+    left: 8px;
+    width: min(340px, calc(100vw - 16px));
+    max-width: calc(100vw - 16px);
+  }
+
+  .right-panel {
+    right: 8px;
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    border-radius: 16px;
+  }
+
+  .mini-filters {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 420px) {
+  .markdown-body {
+    font-size: 14px;
+  }
+
+  .markdown-body :deep(table) {
+    min-width: 360px;
+  }
+
+  .kv-list li {
+    align-items: flex-start;
+  }
+
+  .sentiment-pill {
+    white-space: normal;
+    text-align: right;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .message-row,
   .thinking-dots i,
-  .cursor {
+  .cursor,
+  .sidebar-shell,
+  .right-panel {
     animation: none;
+    transition: none;
   }
 
 }

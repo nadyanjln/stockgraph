@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { onBeforeUnmount, onMounted, ref } from "vue";
 import MultiSelect from "primevue/multiselect";
 import AppLeftSidebar from "@/components/common/AppLeftSidebar.vue";
 import AppMessageComposer from "@/components/common/AppMessageComposer.vue";
@@ -11,6 +11,7 @@ import { useSidebar } from "@/stores/useSidebar";
 
 const { sidebarWidth } = useSidebar();
 const filtersOpen = ref(false);
+const sidebarDrawerOpen = ref(false);
 
 const {
   sessionState,
@@ -45,13 +46,65 @@ function saveAnalysisSettings() {
   thresholdModel.value = draftThresholdModel.value;
   filtersOpen.value = false;
 }
+
+function openSidebarDrawer() {
+  sidebarDrawerOpen.value = true;
+}
+
+function closeSidebarDrawer() {
+  sidebarDrawerOpen.value = false;
+}
+
+function handleEscape(event: KeyboardEvent) {
+  if (event.key !== "Escape") return;
+  closeSidebarDrawer();
+  closeAnalysisModal();
+}
+
+onMounted(() => {
+  window.addEventListener("keydown", handleEscape);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("keydown", handleEscape);
+});
 </script>
 
 <template>
   <main class="home-screen" :style="{ '--sidebar-w': sidebarWidth }">
-    <AppLeftSidebar />
+    <button
+      v-if="sidebarDrawerOpen"
+      type="button"
+      class="drawer-backdrop"
+      aria-label="Tutup riwayat percakapan"
+      @click="closeSidebarDrawer"
+    />
+
+    <div id="home-conversation-sidebar" class="sidebar-shell" :class="{ 'is-open': sidebarDrawerOpen }">
+      <button
+        type="button"
+        class="drawer-close"
+        aria-label="Tutup riwayat percakapan"
+        @click="closeSidebarDrawer"
+      >
+        <i class="pi pi-times" />
+      </button>
+      <AppLeftSidebar />
+    </div>
 
     <section class="home-stage">
+      <header class="home-mobile-toolbar" aria-label="Navigasi StockGraph">
+        <button
+          type="button"
+          aria-controls="home-conversation-sidebar"
+          :aria-expanded="sidebarDrawerOpen"
+          @click="openSidebarDrawer"
+        >
+          <i class="pi pi-bars" />
+          Riwayat
+        </button>
+      </header>
+
       <section class="canvas-card">
         <section class="hero-panel" aria-labelledby="home-title">
           <div class="hero-glow hero-glow-left" />
@@ -220,6 +273,24 @@ function saveAnalysisSettings() {
   background: #181818;
   overflow: hidden;
   transition: grid-template-columns 0.2s ease;
+}
+
+.sidebar-shell {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+
+.sidebar-shell :deep(.left-rail) {
+  flex: 1;
+  min-height: 0;
+}
+
+.drawer-backdrop,
+.drawer-close,
+.home-mobile-toolbar {
+  display: none;
 }
 
 .home-stage {
@@ -893,14 +964,92 @@ function saveAnalysisSettings() {
   .home-screen {
     grid-template-columns: 1fr;
     padding: 14px;
+    height: auto;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .sidebar-shell {
+    position: fixed;
+    z-index: 260;
+    inset: 12px auto 12px 12px;
+    width: min(360px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
+    transform: translateX(calc(-100% - 18px));
+    transition: transform 0.22s ease;
+    filter: drop-shadow(18px 0 40px rgba(0, 0, 0, 0.42));
+  }
+
+  .sidebar-shell.is-open {
+    transform: translateX(0);
+  }
+
+  .sidebar-shell :deep(.left-rail) {
+    width: 100%;
+    min-height: 100%;
+    border-radius: 18px;
+  }
+
+  .drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 250;
+    display: block;
+    border: 0;
+    padding: 0;
+    background: rgba(7, 10, 16, 0.56);
+    backdrop-filter: blur(4px);
+  }
+
+  .drawer-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 3;
+    width: 40px;
+    height: 40px;
+    border: 1px solid rgba(185, 205, 241, 0.14);
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    color: #dce8fb;
+    background: rgba(255, 255, 255, 0.07);
+    cursor: pointer;
   }
 
   .home-stage {
     order: 1;
+    height: auto;
+    min-height: calc(100dvh - 28px);
+  }
+
+  .home-mobile-toolbar {
+    display: flex;
+    justify-content: flex-start;
+    margin-bottom: 10px;
+  }
+
+  .home-mobile-toolbar button {
+    min-height: 42px;
+    border: 1px solid rgba(153, 174, 211, 0.42);
+    border-radius: 12px;
+    padding: 0 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: #1f2a44;
+    background: rgba(255, 255, 255, 0.88);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 10px 22px rgba(73, 96, 135, 0.12);
   }
 
   .canvas-card {
-    min-height: 0;
+    min-height: calc(100dvh - 80px);
   }
 
   .hero-panel {
@@ -944,6 +1093,65 @@ function saveAnalysisSettings() {
 }
 
 @media (max-width: 680px) {
+  .home-screen {
+    padding: 8px;
+  }
+
+  .home-stage {
+    min-height: calc(100dvh - 16px);
+  }
+
+  .sidebar-shell {
+    inset-block: 8px;
+    left: 8px;
+    width: min(340px, calc(100vw - 16px));
+    max-width: calc(100vw - 16px);
+  }
+
+  .canvas-card {
+    min-height: calc(100dvh - 66px);
+    border-radius: 16px;
+  }
+
+  .hero-panel {
+    padding: 60px 14px 18px;
+  }
+
+  .status-pill {
+    left: 14px;
+    right: 14px;
+    justify-content: center;
+  }
+
+  .hero-copy h1 {
+    font-size: clamp(30px, 10vw, 40px);
+  }
+
+  .eyebrow {
+    max-width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .step-card {
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .step-item {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+
+  .step-icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .canvas-center {
+    width: calc(100% - 20px);
+    margin-top: 14px;
+  }
+
   .analysis-source-card {
     align-items: stretch;
     flex-direction: column;
@@ -957,6 +1165,38 @@ function saveAnalysisSettings() {
 
   .adjust-btn {
     width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  :deep(.stock-select .p-multiselect-label) {
+    padding-left: 42px;
+    font-size: 12px;
+  }
+
+  .composer-shell {
+    padding: 8px 10px;
+  }
+
+  .analysis-modal-backdrop {
+    padding: 10px;
+  }
+
+  .analysis-modal {
+    max-height: calc(100dvh - 20px);
+    overflow-y: auto;
+    padding: 14px;
+  }
+
+  .analysis-modal-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-shell {
+    transition: none;
   }
 }
 </style>

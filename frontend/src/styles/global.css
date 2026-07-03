@@ -18,9 +18,13 @@ body {
   font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif;
   color: var(--text);
   background: radial-gradient(circle at 10% -10%, #1c2535 0%, var(--bg-main) 45%, #0b0d13 100%);
+  overflow-x: hidden;
 }
 
-#app { min-height: 100vh; }
+#app {
+  min-height: 100vh;
+  min-width: 0;
+}
 
 .page {
   max-width: 1340px;

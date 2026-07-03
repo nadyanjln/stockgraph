@@ -109,6 +109,7 @@ defineExpose({ focus });
   border-radius: 0;
   background: transparent;
   padding: 0;
+  min-width: 0;
 }
 
 .composer-input {
@@ -126,6 +127,7 @@ defineExpose({ focus });
   font-family: inherit;
   color: #1d2028;
   padding: 6px 98px 6px 0;
+  overflow-wrap: anywhere;
   transition: height 0.12s ease;
   scrollbar-width: thin;
 }
@@ -164,11 +166,27 @@ defineExpose({ focus });
   cursor: pointer;
   transform: none;
   box-shadow: 0 8px 16px rgba(43, 122, 251, 0.18);
+  white-space: nowrap;
 }
 
 .composer-send-btn:disabled {
   opacity: 0.45;
   cursor: default;
+}
+
+@media (max-width: 420px) {
+  .composer-input {
+    min-height: 40px;
+    padding: 7px 78px 7px 0;
+    font-size: 13px;
+  }
+
+  .composer-send-btn {
+    min-width: 64px;
+    height: 32px;
+    padding: 0 10px;
+    font-size: 11px;
+  }
 }
 
 </style>

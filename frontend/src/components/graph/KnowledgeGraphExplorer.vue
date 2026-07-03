@@ -1150,16 +1150,21 @@ onBeforeUnmount(() => {
 
 .graph-toolbar {
   margin-bottom: 8px;
+  min-width: 0;
 }
 
 .graph-toolbar > div:first-child {
   display: grid;
   gap: 2px;
+  min-width: 0;
 }
 
 .graph-toolbar strong {
   font-size: 12px;
   color: #eef4ff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .graph-toolbar span,
@@ -1640,6 +1645,7 @@ onBeforeUnmount(() => {
   inset: 42px 8px 8px auto;
   z-index: 5;
   width: min(380px, calc(100% - 16px));
+  max-height: calc(100% - 50px);
   overflow-y: auto;
   border: 1px solid rgba(162, 190, 238, 0.24);
   border-radius: 12px;
@@ -1676,6 +1682,7 @@ onBeforeUnmount(() => {
   font-weight: 700;
   line-height: 1.45;
   text-decoration: none;
+  overflow-wrap: anywhere;
 }
 
 .source-drawer article p {
@@ -1710,6 +1717,38 @@ onBeforeUnmount(() => {
 
   .graph-focus-panel {
     max-height: 300px;
+  }
+
+  .graph-toolbar {
+    align-items: flex-start;
+  }
+
+  .toolbar-actions {
+    flex: 0 0 auto;
+  }
+
+  .canvas-shell {
+    height: clamp(280px, 54dvh, 420px);
+  }
+
+  .graph-help {
+    display: none;
+  }
+
+  .graph-legend {
+    width: min(220px, calc(100% - 16px));
+  }
+
+  .legend-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .source-drawer {
+    position: fixed;
+    inset: auto 8px 8px;
+    z-index: 320;
+    width: auto;
+    max-height: min(70dvh, 520px);
   }
 }
 </style>

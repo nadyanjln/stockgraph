@@ -92,4 +92,20 @@ const metadata = computed(
 .citation-card__chevron { color: #8d98aa; font-size: 9px; }
 .citation-card__external { width: 40px; flex: 0 0 40px; border-left: 1px solid #e0e5ee; display: grid; place-items: center; color: #56739f; text-decoration: none; transition: color 0.16s ease, background 0.16s ease; }
 .citation-card__external:hover, .citation-card__external:focus-visible { color: #fff; background: #3478f6; outline: none; }
+
+@media (max-width: 420px) {
+  .citation-card__preview {
+    padding: 9px 7px 9px 9px;
+    gap: 7px;
+  }
+
+  .citation-card__external {
+    width: 36px;
+    flex-basis: 36px;
+  }
+
+  .citation-card__copy strong {
+    overflow-wrap: anywhere;
+  }
+}
 </style>
