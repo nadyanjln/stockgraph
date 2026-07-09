@@ -1,15 +1,15 @@
 {
-  "samples": 30,
-  "success": 30,
+  "samples": 5,
+  "success": 5,
   "failed": 0,
   "success_percentage": 100.0,
-  "evaluation_time_seconds": 6712.113010500092,
-  "evaluation_time": "1h 51m 52s",
+  "evaluation_time_seconds": 95.07411975000286,
+  "evaluation_time": "1m 35s",
   "averages": {
-    "faithfulness": 0.7675061975061975,
-    "answer_relevancy": 0.7437687174581517,
-    "context_precision": 0.5715740740330701,
-    "context_recall": 0.8922222222222221,
-    "answer_correctness": 0.7046666666666667
+    "faithfulness": null,
+    "answer_relevancy": 0.0,
+    "context_precision": null,
+    "context_recall": null,
+    "answer_correctness": 0.0
   }
 }

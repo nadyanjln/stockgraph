@@ -45,7 +45,7 @@ class GraphRagasEvaluator:
     def load_dataset(self, path: str | Path | None = None) -> list[EvaluationSample]:
         dataset_path = Path(path or self.config.dataset_path)
         logger.info("Loading dataset...")
-        self.samples = load_evaluation_dataset(dataset_path)
+        self.samples = load_evaluation_dataset(dataset_path, dynamic_mode=self.config.dynamic_mode)
         logger.info("Loaded %s evaluation samples from %s", len(self.samples), dataset_path)
         return self.samples
 
@@ -69,11 +69,26 @@ class GraphRagasEvaluator:
         rows: list[dict[str, Any]] = []
         total = len(self.samples)
 
-        logger.info("Evaluation started.")
-        for index, sample in enumerate(self.samples, start=1):
-            logger.info("Evaluating sample %s/%s...", index, total)
-            row = await self._evaluate_sample(index, sample)
-            rows.append(row)
+        runner = None
+        if self.config.dynamic_mode:
+            from evaluation.pipeline_runner import PipelineRunner
+            runner = PipelineRunner(
+                host=self.config.falkordb_host,
+                port=self.config.falkordb_port,
+                llm_model=self.config.openai_model,
+                embedder_model=self.config.embedding_model,
+            )
+            await runner.initialize()
+
+        try:
+            logger.info("Evaluation started.")
+            for index, sample in enumerate(self.samples, start=1):
+                logger.info("Evaluating sample %s/%s...", index, total)
+                row = await self._evaluate_sample(index, sample, runner=runner)
+                rows.append(row)
+        finally:
+            if runner:
+                await runner.close()
 
         elapsed = time.perf_counter() - started_at
         self.results = rows
@@ -164,8 +179,28 @@ class GraphRagasEvaluator:
         self,
         index: int,
         sample: EvaluationSample,
+        runner: Any = None,
     ) -> dict[str, Any]:
         assert self._scorers is not None
+
+        pipeline_error = ""
+        dataset_answer = sample.answer
+
+        if runner:
+            try:
+                res = await asyncio.wait_for(
+                    runner.run_query(sample.question, session_id=f"eval-session-{index}"),
+                    timeout=self.config.pipeline_timeout_seconds
+                )
+                sample = EvaluationSample(
+                    question=sample.question,
+                    answer=res["answer"],
+                    contexts=res["contexts"],
+                    ground_truth=sample.ground_truth,
+                )
+            except Exception as e:
+                logger.error("Failed to run pipeline for query: %s. Error: %s", sample.question, e)
+                pipeline_error = f"Pipeline execution failed: {type(e).__name__}: {e}"
 
         row: dict[str, Any] = {
             "sample_id": index,
@@ -174,13 +209,16 @@ class GraphRagasEvaluator:
             "ground_truth": sample.ground_truth,
             "contexts_count": len(sample.contexts),
             "success": False,
-            "error": "",
+            "error": pipeline_error,
             "context_precision_source": "",
+            "dataset_answer": dataset_answer,
         }
         for column in METRIC_COLUMNS:
             row[column] = None
 
         errors: list[str] = []
+        if pipeline_error:
+            errors.append(pipeline_error)
 
         if not sample.has_contexts:
             errors.append("contexts empty: skipped context-dependent metrics")

@@ -22,12 +22,17 @@ class EvaluationConfig:
     embedding_model: str
     request_timeout_seconds: float
     max_retries: int
+    dynamic_mode: bool
+    falkordb_host: str
+    falkordb_port: int
+    pipeline_timeout_seconds: float
 
     @classmethod
     def from_env(
         cls,
-        *,
+        * ,
         dataset_path: str | Path | None = None,
+        dynamic_mode: bool | None = None,
     ) -> "EvaluationConfig":
         load_dotenv(PROJECT_ROOT / ".env")
 
@@ -36,6 +41,11 @@ class EvaluationConfig:
             or os.getenv("RAGAS_EVAL_DATASET")
             or DEFAULT_DATASET_PATH
         )
+        
+        is_dynamic = dynamic_mode
+        if is_dynamic is None:
+            is_dynamic = os.getenv("RAGAS_EVAL_DYNAMIC", "true").lower() in ("true", "1", "yes", "on")
+
         return cls(
             dataset_path=resolved_dataset,
             results_dir=DEFAULT_RESULTS_DIR,
@@ -49,4 +59,10 @@ class EvaluationConfig:
                 os.getenv("RAGAS_EVAL_TIMEOUT_SECONDS", "120")
             ),
             max_retries=int(os.getenv("RAGAS_EVAL_MAX_RETRIES", "2")),
+            dynamic_mode=is_dynamic,
+            falkordb_host=os.getenv("FALKORDB_HOST", "localhost"),
+            falkordb_port=int(os.getenv("FALKORDB_PORT", "6379")),
+            pipeline_timeout_seconds=float(
+                os.getenv("RAGAS_EVAL_PIPELINE_TIMEOUT", "120")
+            ),
         )

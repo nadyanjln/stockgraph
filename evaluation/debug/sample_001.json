@@ -1,0 +1,115 @@
+{
+  "created_at": "2026-07-09T02:29:11.198903+00:00",
+  "question": "[BBRI] Dari sisi fundamental, apakah kualitas bisnis BBRI masih terlihat kuat untuk jangka menengah?",
+  "plan": {
+    "agents": [
+      "financial"
+    ],
+    "year": 0,
+    "rationale": "Pertanyaan menanyakan kualitas bisnis dari sisi fundamental, yang berarti fokus pada analisis keuangan dan kinerja perusahaan, bukan peristiwa atau sentimen."
+  },
+  "agents": {
+    "financial": {
+      "agent": "financial",
+      "question": "[BBRI] Dari sisi fundamental, apakah kualitas bisnis BBRI masih terlihat kuat untuk jangka menengah?",
+      "query_rewrite": {
+        "ticker": "BBRI",
+        "tickers": [
+          "BBRI"
+        ],
+        "intent": "simple",
+        "queries": [
+          "BBRI financial performance",
+          "BBRI earnings profitability",
+          "BBRI latest news",
+          "BBRI industry context",
+          "BBRI business strategy"
+        ]
+      },
+      "graph_retrieval_results": [],
+      "semantic_retrieval_results": [],
+      "merge_stage": {
+        "number_of_contexts": 0,
+        "contexts": []
+      },
+      "deduplication_stage": {
+        "url": 0,
+        "article_fingerprint": 0,
+        "entity": 0,
+        "financial_report": 0,
+        "text_similarity": 0,
+        "normalized_text": 0,
+        "title_similarity": 0,
+        "cosine_similarity": 0,
+        "entity_overlap": 0,
+        "total_removed": 0,
+        "kept": 0,
+        "removed_contexts": []
+      },
+      "reranker_stage": [],
+      "top_k_selection": {
+        "retrieved": 0,
+        "merged": 0,
+        "deduplicated": 0,
+        "hard_filtered": 0,
+        "reranked": 0,
+        "sent_to_gpt": 0,
+        "configured_final_top_k": 3
+      },
+      "counts": {
+        "retrieved": 0,
+        "merged": 0,
+        "deduplicated": 0,
+        "hard_filtered": 0,
+        "reranked": 0,
+        "sent_to_gpt": 0,
+        "configured_final_top_k": 3
+      },
+      "final_contexts": [],
+      "final_prompt": {
+        "prompt_token_count": 0,
+        "context_token_count": 0,
+        "question_token_count": 25,
+        "included_contexts": []
+      }
+    }
+  },
+  "top_k_summary": {
+    "financial": {
+      "retrieved": 0,
+      "merged": 0,
+      "deduplicated": 0,
+      "reranked": 0,
+      "sent_to_gpt": 0
+    }
+  },
+  "final_prompt": {
+    "prompt_token_count": 0,
+    "context_token_count": 0,
+    "question_token_count": 25,
+    "included_contexts": []
+  },
+  "answer_validation": [
+    {
+      "sentence_number": 1,
+      "sentence": "Belum ada evidence yang dapat digunakan untuk menganalisis BBRI pada corpus saat ini.",
+      "supported_by": [],
+      "unsupported": true
+    },
+    {
+      "sentence_number": 2,
+      "sentence": "Sistem tidak menemukan berita relevan maupun laporan keuangan yang berhasil diproses untuk emiten ini.",
+      "supported_by": [],
+      "unsupported": true
+    },
+    {
+      "sentence_number": 3,
+      "sentence": "**Cakupan sumber** - Berita: belum tersedia - Laporan Keuangan IDX: belum tersedia",
+      "supported_by": [],
+      "unsupported": true
+    }
+  ],
+  "answer": "Belum ada evidence yang dapat digunakan untuk menganalisis BBRI pada corpus saat ini. Sistem tidak menemukan berita relevan maupun laporan keuangan yang berhasil diproses untuk emiten ini.\n\n**Cakupan sumber**\n- Berita: belum tersedia\n- Laporan Keuangan IDX: belum tersedia",
+  "sources": [],
+  "graph_paths": []
+}

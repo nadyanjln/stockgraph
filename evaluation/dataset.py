@@ -35,7 +35,7 @@ class DatasetValidationError(ValueError):
     """Raised when the evaluation dataset cannot be used."""
 
 
-def load_evaluation_dataset(path: str | Path) -> list[EvaluationSample]:
+def load_evaluation_dataset(path: str | Path, dynamic_mode: bool = False) -> list[EvaluationSample]:
     resolved = Path(path)
     if not resolved.exists():
         raise FileNotFoundError(f"Dataset not found: {resolved}")
@@ -50,7 +50,7 @@ def load_evaluation_dataset(path: str | Path) -> list[EvaluationSample]:
             "contexts, and optional ground_truth columns."
         )
 
-    samples = [_normalize_row(row, index) for index, row in enumerate(rows, start=1)]
+    samples = [_normalize_row(row, index, dynamic_mode=dynamic_mode) for index, row in enumerate(rows, start=1)]
     if not samples:
         raise DatasetValidationError("Evaluation dataset is empty.")
     return samples
@@ -80,7 +80,7 @@ def _load_json(path: Path) -> list[dict[str, Any]]:
     return data
 
 
-def _normalize_row(row: dict[str, Any], index: int) -> EvaluationSample:
+def _normalize_row(row: dict[str, Any], index: int, dynamic_mode: bool = False) -> EvaluationSample:
     question = clean_optional_text(row.get("question"))
     answer = clean_optional_text(row.get("answer"))
     contexts = normalize_contexts(row.get("contexts"))
@@ -91,7 +91,7 @@ def _normalize_row(row: dict[str, Any], index: int) -> EvaluationSample:
     missing = []
     if not question:
         missing.append("question")
-    if not answer:
+    if not dynamic_mode and not answer:
         missing.append("answer")
     if missing:
         raise DatasetValidationError(

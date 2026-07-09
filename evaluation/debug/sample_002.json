@@ -1,0 +1,115 @@
+{
+  "created_at": "2026-07-09T02:29:31.085301+00:00",
+  "question": "[ASII] Apa yang perlu dibaca dari fundamental ASII kalau pendapatan otomotif sedang berubah?",
+  "plan": {
+    "agents": [
+      "financial"
+    ],
+    "year": 0,
+    "rationale": "Pertanyaan fokus pada aspek fundamental dan perubahan pendapatan otomotif, sehingga membutuhkan analisis keuangan untuk menilai dampaknya terhadap kinerja ASII."
+  },
+  "agents": {
+    "financial": {
+      "agent": "financial",
+      "question": "[ASII] Apa yang perlu dibaca dari fundamental ASII kalau pendapatan otomotif sedang berubah?",
+      "query_rewrite": {
+        "ticker": "ASII",
+        "tickers": [
+          "ASII"
+        ],
+        "intent": "financial",
+        "queries": [
+          "ASII financial performance revenue earnings",
+          "ASII revenue growth earnings growth expansion",
+          "ASII financial performance",
+          "ASII revenue net income",
+          "ASII profitability ROE ROA"
+        ]
+      },
+      "graph_retrieval_results": [],
+      "semantic_retrieval_results": [],
+      "merge_stage": {
+        "number_of_contexts": 0,
+        "contexts": []
+      },
+      "deduplication_stage": {
+        "url": 0,
+        "article_fingerprint": 0,
+        "entity": 0,
+        "financial_report": 0,
+        "text_similarity": 0,
+        "normalized_text": 0,
+        "title_similarity": 0,
+        "cosine_similarity": 0,
+        "entity_overlap": 0,
+        "total_removed": 0,
+        "kept": 0,
+        "removed_contexts": []
+      },
+      "reranker_stage": [],
+      "top_k_selection": {
+        "retrieved": 0,
+        "merged": 0,
+        "deduplicated": 0,
+        "hard_filtered": 0,
+        "reranked": 0,
+        "sent_to_gpt": 0,
+        "configured_final_top_k": 3
+      },
+      "counts": {
+        "retrieved": 0,
+        "merged": 0,
+        "deduplicated": 0,
+        "hard_filtered": 0,
+        "reranked": 0,
+        "sent_to_gpt": 0,
+        "configured_final_top_k": 3
+      },
+      "final_contexts": [],
+      "final_prompt": {
+        "prompt_token_count": 0,
+        "context_token_count": 0,
+        "question_token_count": 23,
+        "included_contexts": []
+      }
+    }
+  },
+  "top_k_summary": {
+    "financial": {
+      "retrieved": 0,
+      "merged": 0,
+      "deduplicated": 0,
+      "reranked": 0,
+      "sent_to_gpt": 0
+    }
+  },
+  "final_prompt": {
+    "prompt_token_count": 0,
+    "context_token_count": 0,
+    "question_token_count": 23,
+    "included_contexts": []
+  },
+  "answer_validation": [
+    {
+      "sentence_number": 1,
+      "sentence": "Belum ada evidence yang dapat digunakan untuk menganalisis ASII pada corpus saat ini.",
+      "supported_by": [],
+      "unsupported": true
+    },
+    {
+      "sentence_number": 2,
+      "sentence": "Sistem tidak menemukan berita relevan maupun laporan keuangan yang berhasil diproses untuk emiten ini.",
+      "supported_by": [],
+      "unsupported": true
+    },
+    {
+      "sentence_number": 3,
+      "sentence": "**Cakupan sumber** - Berita: belum tersedia - Laporan Keuangan IDX: belum tersedia",
+      "supported_by": [],
+      "unsupported": true
+    }
+  ],
+  "answer": "Belum ada evidence yang dapat digunakan untuk menganalisis ASII pada corpus saat ini. Sistem tidak menemukan berita relevan maupun laporan keuangan yang berhasil diproses untuk emiten ini.\n\n**Cakupan sumber**\n- Berita: belum tersedia\n- Laporan Keuangan IDX: belum tersedia",
+  "sources": [],
+  "graph_paths": []
+}
