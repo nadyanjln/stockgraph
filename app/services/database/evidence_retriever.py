@@ -17,6 +17,10 @@ from typing import Literal
 from urllib.parse import urlparse
 
 from app.services.database.graph_builder import PROVENANCE_PATH, list_year_graphs
+from app.services.database.retrieval_optimizer import (
+    RetrievalConfig,
+    RetrievedContext,
+)
 
 EvidenceKind = Literal["news", "financial_report"]
 
@@ -48,7 +52,11 @@ class RetrievalDiagnostics:
     financial_chunks_found: int = 0
     graph_nodes_found: int = 0
     graph_edges_traversed: int = 0
+    graph_contexts_retrieved: int = 0
     vector_chunks_retrieved: int = 0
+    merged_context_count: int = 0
+    reranked_context_count: int = 0
+    final_context_count: int = 0
     retrieval_strategy_used: list[str] = field(default_factory=list)
     fallback_reason: str | None = None
     financial_period_used: str = ""
@@ -67,7 +75,11 @@ class RetrievalDiagnostics:
             "financial_chunks_found": self.financial_chunks_found,
             "graph_nodes_found": self.graph_nodes_found,
             "graph_edges_traversed": self.graph_edges_traversed,
+            "graph_contexts_retrieved": self.graph_contexts_retrieved,
             "vector_chunks_retrieved": self.vector_chunks_retrieved,
+            "merged_context_count": self.merged_context_count,
+            "reranked_context_count": self.reranked_context_count,
+            "final_context_count": self.final_context_count,
             "retrieval_strategy_used": self.retrieval_strategy_used,
             "fallback_reason": self.fallback_reason,
             "financial_period_used": self.financial_period_used,
@@ -85,6 +97,7 @@ class EvidenceBundle:
     graph_paths: list[str] = field(default_factory=list)
     news_sources: list[dict[str, str]] = field(default_factory=list)
     financial_sources: list[dict[str, str]] = field(default_factory=list)
+    contexts: list[RetrievedContext] = field(default_factory=list)
     diagnostics: RetrievalDiagnostics | None = None
 
 
@@ -172,7 +185,9 @@ def retrieve_local_evidence(
     target_year: int | None = None,
     max_hops: int = 2,
     news_limit: int = 6,
+    config: RetrievalConfig | None = None,
 ) -> EvidenceBundle:
+    cfg = config or RetrievalConfig.from_env()
     registry = _registry()
     diagnostics = RetrievalDiagnostics(query=question)
     ticker = resolve_ticker(question, registry)
@@ -192,8 +207,9 @@ def retrieve_local_evidence(
         diagnostics.fallback_reason = "ticker_node_not_found"
         return EvidenceBundle(ticker=ticker, diagnostics=diagnostics)
 
-    node_ids, traversed_edges = _traverse(registry, stock_id, max_hops)
-    diagnostics.retrieval_strategy_used.append(f"graph_traversal_{max_hops}_hop")
+    effective_hops = max_hops if max_hops is not None else cfg.graph_depth
+    node_ids, traversed_edges = _traverse(registry, stock_id, effective_hops)
+    diagnostics.retrieval_strategy_used.append(f"graph_traversal_{effective_hops}_hop")
     diagnostics.graph_nodes_found = len(node_ids)
     diagnostics.graph_edges_traversed = len(
         {str(edge.get("id")) for edge in traversed_edges if edge.get("id")}
@@ -209,13 +225,14 @@ def retrieve_local_evidence(
         key=lambda item: (_date_key(str(item.get("publication_date", ""))), item.get("title", "")),
         reverse=True,
     )
-    selected_articles = articles[:news_limit]
+    selected_articles = articles[: min(news_limit, cfg.top_k_graph)]
     diagnostics.news_after_relevance_filter = len(selected_articles)
     if selected_articles:
         diagnostics.retrieval_strategy_used.append("provenance_news")
 
     news_snippets: list[str] = []
     news_sources: list[dict[str, str]] = []
+    contexts: list[RetrievedContext] = []
     for article in selected_articles:
         title = str(article.get("title") or "Berita terkait")
         summary = str(article.get("summary") or "")
@@ -224,31 +241,41 @@ def retrieve_local_evidence(
             str(article.get("publisher") or ""),
             str(article.get("url") or ""),
         )
-        news_snippets.append(
-            "\n".join(
-                [
-                    "Jenis evidence: Berita",
-                    f"Kode saham: {ticker}",
-                    f"Judul: {title}",
-                    f"Publisher: {publisher or '-'}",
-                    f"Tanggal publikasi: {published or '-'}",
-                    f"Ringkasan: {summary or '-'}",
-                ]
-            )
+        snippet = "\n".join(
+            [
+                "Jenis evidence: Berita",
+                f"Kode saham: {ticker}",
+                f"Judul: {title}",
+                f"Publisher: {publisher or '-'}",
+                f"Tanggal publikasi: {published or '-'}",
+                f"Ringkasan: {summary or '-'}",
+            ]
         )
+        news_snippets.append(snippet)
+        article_source = {
+            "source_id": str(article.get("id") or ""),
+            "source_type": "news",
+            "title": title,
+            "source_name": publisher,
+            "publisher": publisher,
+            "url": str(article.get("url") or ""),
+            "publication_date": published,
+            "reporting_period": "",
+            "snippet": summary[:700],
+            "retrieved_text": summary[:2000],
+        }
         news_sources.append(
-            {
-                "source_id": str(article.get("id") or ""),
-                "source_type": "news",
-                "title": title,
-                "source_name": publisher,
-                "publisher": publisher,
-                "url": str(article.get("url") or ""),
-                "publication_date": published,
-                "reporting_period": "",
-                "snippet": summary[:700],
-                "retrieved_text": summary[:2000],
-            }
+            article_source
+        )
+        contexts.append(
+            RetrievedContext(
+                text=snippet,
+                source_type="news",
+                retrieval_source="provenance",
+                source=article_source,
+                score=0.25,
+                source_id=str(article.get("id") or ""),
+            )
         )
 
     financial_nodes = [
@@ -289,20 +316,31 @@ def retrieve_local_evidence(
             f"{node.get('label')}: {node.get('description')}"
             for node in selected_financial
         )
-        financial_sources.append(
-            {
-                "source_id": f"financial:{ticker}:{latest_year}",
-                "source_type": "financial_report",
-                "title": f"Laporan Keuangan {ticker}",
-                "source_name": ticker,
-                "publisher": "",
-                "url": "",
-                "publication_date": "",
-                "reporting_period": f"FY {latest_year}",
-                "snippet": combined[:700],
-                "retrieved_text": combined[:2000],
-            }
-        )
+        financial_source = {
+            "source_id": f"financial:{ticker}:{latest_year}",
+            "source_type": "financial_report",
+            "title": f"Laporan Keuangan {ticker}",
+            "source_name": ticker,
+            "publisher": "",
+            "url": "",
+            "publication_date": "",
+            "reporting_period": f"FY {latest_year}",
+            "snippet": combined[:700],
+            "retrieved_text": combined[:2000],
+        }
+        financial_sources.append(financial_source)
+        for snippet in financial_snippets:
+            contexts.append(
+                RetrievedContext(
+                    text=snippet,
+                    source_type="financial_report",
+                    retrieval_source="graph",
+                    source=financial_source,
+                    score=0.35,
+                    graph_score=0.35,
+                    source_id=financial_source["source_id"],
+                )
+            )
 
     graph_paths: list[str] = []
     nodes = registry["nodes"]
@@ -318,8 +356,24 @@ def retrieve_local_evidence(
         if path not in seen_paths:
             seen_paths.add(path)
             graph_paths.append(path)
+            contexts.append(
+                RetrievedContext(
+                    text=(
+                        "Jenis evidence: Relasi Knowledge Graph\n"
+                        f"Kode saham: {ticker}\n"
+                        f"Path: {path}"
+                    ),
+                    source_type="graph_path",
+                    retrieval_source="graph",
+                    score=0.2,
+                    graph_score=0.2,
+                    edge_path=path,
+                    node_id=str(edge.get("source") or ""),
+                )
+            )
         if len(graph_paths) >= 12:
             break
+    diagnostics.graph_contexts_retrieved = len(graph_paths)
 
     if not news_snippets and not financial_snippets:
         diagnostics.fallback_reason = "no_valid_evidence_in_provenance_corpus"
@@ -354,6 +408,7 @@ def retrieve_local_evidence(
         graph_paths=graph_paths,
         news_sources=news_sources,
         financial_sources=financial_sources,
+        contexts=contexts,
         diagnostics=diagnostics,
     )
 

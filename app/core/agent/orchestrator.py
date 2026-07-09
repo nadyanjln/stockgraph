@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import uuid
 from dataclasses import dataclass, field
 from typing import AsyncIterator
@@ -19,6 +20,11 @@ from app.core.agent.manager_agent import (
 from app.core.agent.news_agent import run_news_agent
 from app.core.agent.response_formatter import format_rag_response
 from app.core.agent.evidence_policy import no_evidence_answer, source_coverage
+from app.services.database.retrieval_debug import (
+    build_debug_payload,
+    export_question_debug,
+    log_observability,
+)
 from app.services.database.graphrag_engine import GraphRAGEngine
 from app.utils.logger import get_logger
 
@@ -146,11 +152,24 @@ class Orchestrator:
         )
         if not sub_sources:
             final_answer = no_evidence_answer(question)
+            final_messages: list[ChatMessage] = []
         else:
             messages = manager_synthesizer_messages(
                 question, history, sub_answers, sub_citations, sub_sources
             )
+            final_messages = messages
             final_answer = await synthesize_answer(messages)
+        if os.getenv("DEBUG_RAG", "").strip().lower() in {"1", "true", "yes", "on"}:
+            logger.info("llm_response=%s", final_answer)
+        self._export_retrieval_debug(
+            question=question,
+            plan=plan,
+            diagnostics=diagnostics,
+            sources=sub_sources,
+            graph_paths=graph_paths,
+            final_answer=final_answer,
+            final_messages=final_messages,
+        )
         self.sessions.append(session_id, question, final_answer)
         formatted = format_rag_response(final_answer, sub_citations, sub_sources)
         diagnostic_summary = self._diagnostic_summary(
@@ -321,6 +340,17 @@ class Orchestrator:
                     "label": "Menyusun analisis berbasis evidence",
                 }
                 final_answer = no_evidence_answer(question)
+                if os.getenv("DEBUG_RAG", "").strip().lower() in {"1", "true", "yes", "on"}:
+                    logger.info("llm_response=%s", final_answer)
+                self._export_retrieval_debug(
+                    question=question,
+                    plan=plan,
+                    diagnostics=diagnostics,
+                    sources=[],
+                    graph_paths=graph_paths,
+                    final_answer=final_answer,
+                    final_messages=[],
+                )
                 self.sessions.append(session_id, question, final_answer)
                 formatted = format_rag_response(final_answer, [], [])
                 yield {
@@ -367,6 +397,17 @@ class Orchestrator:
                 yield {"type": "token", "delta": delta}
 
             final_answer = "".join(full_answer_parts).strip()
+            if os.getenv("DEBUG_RAG", "").strip().lower() in {"1", "true", "yes", "on"}:
+                logger.info("llm_response=%s", final_answer)
+            self._export_retrieval_debug(
+                question=question,
+                plan=plan,
+                diagnostics=diagnostics,
+                sources=sub_sources,
+                graph_paths=graph_paths,
+                final_answer=final_answer,
+                final_messages=messages,
+            )
             self.sessions.append(session_id, question, final_answer)
             yield {
                 "type": "progress",
@@ -419,7 +460,11 @@ class Orchestrator:
             "financial_chunks_found": 0,
             "graph_nodes_found": 0,
             "graph_edges_traversed": 0,
+            "graph_contexts_retrieved": 0,
             "vector_chunks_retrieved": 0,
+            "merged_context_count": 0,
+            "reranked_context_count": 0,
+            "final_context_count": 0,
             "retrieval_strategy_used": [],
             "fallback_reason": None,
             "corpus_status": "unknown",
@@ -440,7 +485,11 @@ class Orchestrator:
                 "financial_chunks_found",
                 "graph_nodes_found",
                 "graph_edges_traversed",
+                "graph_contexts_retrieved",
                 "vector_chunks_retrieved",
+                "merged_context_count",
+                "reranked_context_count",
+                "final_context_count",
             ):
                 merged[key] = max(int(merged[key]), int(values.get(key) or 0))
             for strategy in values.get("retrieval_strategy_used", []):
@@ -455,8 +504,68 @@ class Orchestrator:
             merged["fallback_reason"] = "no_valid_retrieved_sources"
         merged["source_coverage"] = coverage
         merged["graph_paths_found"] = len(graph_paths)
+        if os.getenv("DEBUG_RAG", "").strip().lower() in {"1", "true", "yes", "on"}:
+            debug_trace = {
+                name: values.get("retrieval_debug", {})
+                for name, values in agent_diagnostics.items()
+                if values.get("retrieval_debug")
+            }
+            if debug_trace:
+                logger.info(
+                    "rag_debug_trace=%s",
+                    json.dumps(
+                        {
+                            "question": question,
+                            "agents": debug_trace,
+                            "sources": sources,
+                            "graph_paths": graph_paths,
+                        },
+                        ensure_ascii=False,
+                    ),
+                )
         logger.info("retrieval_diagnostics=%s", json.dumps(merged, ensure_ascii=False))
         return merged
+
+    @staticmethod
+    def _export_retrieval_debug(
+        *,
+        question: str,
+        plan,
+        diagnostics: dict[str, dict],
+        sources: list[dict[str, str]],
+        graph_paths: list[str],
+        final_answer: str,
+        final_messages: list[ChatMessage],
+    ) -> None:
+        try:
+            final_prompt = "\n\n".join(
+                f"{message['role'].upper()}:\n{message['content']}"
+                for message in final_messages
+            )
+            payload = build_debug_payload(
+                question=question,
+                plan=plan,
+                agent_diagnostics=diagnostics,
+                sources=sources,
+                graph_paths=graph_paths,
+                answer=final_answer,
+                final_prompt=final_prompt,
+            )
+            path = export_question_debug(payload)
+            log_observability(
+                logger,
+                "Answer validation",
+                {
+                    "debug_file": str(path),
+                    "unsupported_sentences": [
+                        row
+                        for row in payload.get("answer_validation", [])
+                        if row.get("unsupported")
+                    ],
+                },
+            )
+        except Exception as exc:  # noqa: BLE001 - debug export must not break chat.
+            logger.warning("retrieval_debug_export_failed=%s", exc)
 
 
 __all__ = ["Orchestrator", "SessionStore", "Session", "HISTORY_TURNS"]

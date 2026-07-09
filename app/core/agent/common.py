@@ -50,6 +50,8 @@ async def chat_complete(
     model: str,
     temperature: float = 0.2,
     response_format: dict | None = None,
+    top_p: float | None = None,
+    max_tokens: int | None = None,
 ) -> str:
     """Run a non-streaming chat completion without LangChain."""
     kwargs = {
@@ -59,6 +61,10 @@ async def chat_complete(
     }
     if response_format is not None:
         kwargs["response_format"] = response_format
+    if top_p is not None:
+        kwargs["top_p"] = top_p
+    if max_tokens is not None:
+        kwargs["max_tokens"] = max_tokens
 
     response = await openai_client().chat.completions.create(**kwargs)
     return (response.choices[0].message.content or "").strip()
@@ -68,14 +74,21 @@ async def stream_chat(
     messages: list[ChatMessage],
     model: str,
     temperature: float = 0.2,
+    top_p: float | None = None,
+    max_tokens: int | None = None,
 ) -> AsyncIterator[str]:
     """Stream chat tokens directly from the OpenAI async SDK."""
-    stream = await openai_client().chat.completions.create(
-        model=model,
-        messages=messages,
-        temperature=temperature,
-        stream=True,
-    )
+    kwargs = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "stream": True,
+    }
+    if top_p is not None:
+        kwargs["top_p"] = top_p
+    if max_tokens is not None:
+        kwargs["max_tokens"] = max_tokens
+    stream = await openai_client().chat.completions.create(**kwargs)
     async for chunk in stream:
         delta = chunk.choices[0].delta.content
         if delta:

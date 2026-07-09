@@ -30,31 +30,28 @@ Aturan:
 
 
 MANAGER_SYNTHESIZER_SYSTEM = """\
-Kamu adalah Senior Analyst yang menyintesiskan jawaban final untuk investor BEI.
-Kamu menerima jawaban parsial dari News Analyst dan Financial Analyst, dan harus
-menggabungkannya menjadi jawaban tunggal yang koheren.
+Kamu adalah asisten analisis saham BEI yang menyusun jawaban final berbasis
+context retrieval yang diberikan.
 
 Aturan:
-- Jawab dalam Bahasa Indonesia, ringkas tapi informatif.
-- Mulai dengan kesimpulan utama (1 kalimat), lanjut detail pendukung.
-- Gunakan Markdown yang rapi. Heading hanya untuk bagian utama.
-- Gunakan numbered list untuk kategori/faktor utama, dan bullet list untuk detail turunan.
-- Jangan menulis nomor list secara manual berulang seperti "1." pada setiap item;
-  biarkan Markdown membuat nomor otomatis dalam satu daftar.
-- Gunakan paragraf pendek, maksimal sekitar 3-4 baris.
-- Cantumkan sitasi inline [1], [2], dst. tepat setelah klaim yang didukung.
-- Satu klaim boleh memakai beberapa sumber, misalnya [1] [3].
-- Jangan menaruh citation pada baris terpisah.
-- Jangan membuat nomor sitasi yang tidak tersedia pada daftar sumber.
-- Gunakan hanya nomor sumber yang tercantum; metadata sumber tidak boleh dikarang.
-- Jangan memberi sitasi pada klaim bahwa data tidak ditemukan.
-- Jangan menambahkan faktor, angka, atau pengetahuan eksternal yang tidak muncul
-  pada jawaban spesialis atau cuplikan sumber retrieval.
-- Setiap klaim faktual spesifik harus memiliki sitasi inline yang valid.
-- Label [Berita] dan [Laporan Keuangan IDX] pada daftar sumber menunjukkan provenance.
-- Jangan membuat bagian sumber sendiri; aplikasi akan menampilkannya.
-- Bila konteks dari history relevan, gunakan untuk menjaga koherensi conversation.
-- Jangan ulangi pertanyaan; langsung ke jawaban.
+- Jawab HANYA menggunakan context yang diberikan.
+- Jangan gunakan pengetahuan luar, asumsi, atau informasi yang tidak muncul pada context.
+- Pertanyaan investor saat ini adalah sumber kebenaran utama. Abaikan riwayat
+  percakapan bila ticker, emiten, tahun, atau topiknya berbeda dari pertanyaan saat ini.
+- Setiap klaim faktual harus didukung oleh context retrieval yang tersedia.
+- Jika context tidak memuat informasi yang cukup, nyatakan secara eksplisit bahwa
+  dokumen yang tersedia tidak memuat informasi yang cukup.
+- Prioritaskan laporan keuangan resmi dan data keuangan terstruktur dibanding berita
+  bila keduanya tersedia.
+- Jangan menciptakan angka, entitas, tanggal, hubungan, penyebab, atau rekomendasi.
+- Kutip nilai keuangan persis seperti tertulis pada context.
+- Abaikan informasi yang berulang atau duplikat.
+- Gabungkan beberapa context pendukung menjadi satu jawaban singkat dan faktual.
+- Fokus hanya pada pertanyaan pengguna.
+- Jawab langsung pada inti pertanyaan dalam 2-5 kalimat pendek.
+- Hindari penjelasan yang tidak perlu.
+- Jangan berspekulasi.
+- Kembalikan plain text saja, tanpa Markdown, heading, tabel, bullet, atau daftar sumber.
 """
 
 
@@ -175,21 +172,36 @@ def manager_synthesizer_messages(
             f"{chr(10).join(parts)}\n\n"
             f"Sumber retrieval bernomor:\n{citations_block}\n\n"
             f"Kebijakan cakupan evidence:\n{coverage_rule}\n\n"
-            "Tulis jawaban final terpadu dengan paragraf pendek dan struktur Markdown. "
-            "Tempatkan nomor sitasi langsung setelah klaim yang didukung. "
-            "Jika sumber tidak tersedia, jangan tampilkan nomor sitasi."
+            "Susun jawaban final sebagai plain text yang ringkas dan langsung menjawab pertanyaan. Gunakan hanya "
+            "informasi dari jawaban spesialis dan sumber retrieval bernomor di atas. "
+            "Abaikan riwayat percakapan jika berbeda ticker, emiten, atau topik. "
+            "Jangan memasukkan klaim yang tidak muncul eksplisit pada evidence. "
+            "Jika informasi pendukung tidak tersedia, tulis bahwa dokumen yang "
+            "tersedia tidak memuat informasi yang cukup."
         )},
     ]
 
 
 async def synthesize_answer(messages: list[ChatMessage]) -> str:
     """Non-streaming final manager synthesis."""
-    return await chat_complete(messages, model=MANAGER_MODEL, temperature=0.3)
+    return await chat_complete(
+        messages,
+        model=MANAGER_MODEL,
+        temperature=0.0,
+        top_p=1.0,
+        max_tokens=512,
+    )
 
 
 def stream_synthesis(messages: list[ChatMessage]):
     """Streaming final manager synthesis."""
-    return stream_chat(messages, model=MANAGER_MODEL, temperature=0.3)
+    return stream_chat(
+        messages,
+        model=MANAGER_MODEL,
+        temperature=0.0,
+        top_p=1.0,
+        max_tokens=512,
+    )
 
 
 __all__ = [
