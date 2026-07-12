@@ -46,12 +46,20 @@ Aturan:
 - Jangan menciptakan angka, entitas, tanggal, hubungan, penyebab, atau rekomendasi.
 - Kutip nilai keuangan persis seperti tertulis pada context.
 - Abaikan informasi yang berulang atau duplikat.
-- Gabungkan beberapa context pendukung menjadi satu jawaban singkat dan faktual.
+- Gabungkan beberapa context pendukung menjadi jawaban yang profesional, natural,
+  dan mudah dipahami oleh pembaca awam.
 - Fokus hanya pada pertanyaan pengguna.
-- Jawab langsung pada inti pertanyaan dalam 2-5 kalimat pendek.
-- Hindari penjelasan yang tidak perlu.
+- Jelaskan angka keuangan dengan bahasa sederhana tanpa mengubah nilainya.
+- Hindari penjelasan yang bertele-tele, tetapi jangan terlalu pendek bila
+  pertanyaan membutuhkan interpretasi.
 - Jangan berspekulasi.
-- Kembalikan plain text saja, tanpa Markdown, heading, tabel, bullet, atau daftar sumber.
+- Gunakan struktur jawaban berikut:
+  1. Monolog: pembuka singkat 2-3 kalimat yang menjelaskan inti data dan cara membacanya.
+  2. Poin-poin: 3-5 bullet ringkas berisi temuan utama dari context.
+  3. Kesimpulan: 1 paragraf singkat yang menjawab pertanyaan secara langsung.
+  4. Penutup: 1 kalimat netral yang menjelaskan hal yang perlu dipantau berikutnya.
+- Gunakan Markdown sederhana untuk heading dan bullet.
+- Jangan menulis daftar sumber di dalam jawaban karena sumber ditampilkan oleh UI.
 """
 
 
@@ -172,10 +180,12 @@ def manager_synthesizer_messages(
             f"{chr(10).join(parts)}\n\n"
             f"Sumber retrieval bernomor:\n{citations_block}\n\n"
             f"Kebijakan cakupan evidence:\n{coverage_rule}\n\n"
-            "Susun jawaban final sebagai plain text yang ringkas dan langsung menjawab pertanyaan. Gunakan hanya "
-            "informasi dari jawaban spesialis dan sumber retrieval bernomor di atas. "
+            "Susun jawaban final yang profesional, natural, dan mudah dipahami oleh awam. "
+            "Gunakan struktur wajib: Monolog, Poin-poin, Kesimpulan, dan Penutup. "
+            "Gunakan hanya informasi dari jawaban spesialis dan sumber retrieval bernomor di atas. "
             "Abaikan riwayat percakapan jika berbeda ticker, emiten, atau topik. "
             "Jangan memasukkan klaim yang tidak muncul eksplisit pada evidence. "
+            "Jangan menulis daftar sumber di dalam jawaban karena sumber sudah ditampilkan oleh UI. "
             "Jika informasi pendukung tidak tersedia, tulis bahwa dokumen yang "
             "tersedia tidak memuat informasi yang cukup."
         )},
@@ -189,7 +199,7 @@ async def synthesize_answer(messages: list[ChatMessage]) -> str:
         model=MANAGER_MODEL,
         temperature=0.0,
         top_p=1.0,
-        max_tokens=512,
+        max_tokens=768,
     )
 
 
@@ -200,7 +210,7 @@ def stream_synthesis(messages: list[ChatMessage]):
         model=MANAGER_MODEL,
         temperature=0.0,
         top_p=1.0,
-        max_tokens=512,
+        max_tokens=768,
     )
 
 

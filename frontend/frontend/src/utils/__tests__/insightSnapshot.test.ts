@@ -37,10 +37,10 @@ function snapshot(
 }
 
 describe("conversation insight snapshot", () => {
-  it("keeps the existing sentiment when the source snapshot is unchanged", () => {
+  it("keeps the existing snapshot when the source payload is unchanged", () => {
     const current = snapshot("same", "positive");
     const incoming = {
-      ...snapshot("same", "negative"),
+      ...snapshot("same", "positive"),
       updated_at: "2026-06-25T11:00:00Z",
     };
     const result = mergeConversationInsightSnapshot(current, incoming, "conversation-1");
@@ -49,6 +49,21 @@ describe("conversation insight snapshot", () => {
     expect(result.snapshot.sentiment).toBe("positive");
     expect(result.snapshot.updated_at).toBe("2026-06-25T10:00:00Z");
     expect(result.reason).toContain("snapshot sumber yang sama");
+  });
+
+  it("refreshes when graph counts change even with the same source IDs", () => {
+    const current = snapshot("same", "positive");
+    const incoming = {
+      ...snapshot("same", "positive"),
+      graph_node_count: 8,
+      graph_relation_count: 6,
+    };
+    const result = mergeConversationInsightSnapshot(current, incoming, "conversation-1");
+
+    expect(result.changed).toBe(true);
+    expect(result.snapshot.graph_node_count).toBe(8);
+    expect(result.snapshot.graph_relation_count).toBe(6);
+    expect(result.reason).toBe("Diperbarui karena graph hasil ingestion berubah");
   });
 
   it("updates sentiment and reason only when the source snapshot changes", () => {

@@ -28,19 +28,19 @@ describe("quick recommendation prompts", () => {
     expect(prompts.some((item) => forbidden.test(item))).toBe(false);
   });
 
-  it("uses multi-source or relational framing in Research prompts", () => {
+  it("uses business, risk, and comparison framing in Research prompts", () => {
     const prompts = buildRecommendations("Research", ["BBCA"]);
-    expect(prompts[0]).toMatch(/laba bersih.*sentimen.*berita/i);
-    expect(prompts[1]).toMatch(/laporan keuangan.*berita.*kondisi pasar/i);
-    expect(prompts[2]).toMatch(/pendapatan.*margin.*laba bersih.*berita/i);
+    expect(prompts[0]).toMatch(/kinerja keuangan.*cerita bisnis.*berita/i);
+    expect(prompts[1]).toMatch(/risiko industri.*kondisi ekonomi/i);
+    expect(prompts[2]).toMatch(/faktor terbesar.*prospek bisnis/i);
   });
 
   it("only shows a company comparison when a second ticker is selected", () => {
     const withoutPeer = buildRecommendations("Research", ["BBCA"])[2] ?? "";
     const withPeer = buildRecommendations("Research", ["BBCA", "BBRI"])[2] ?? "";
 
-    expect(withoutPeer).not.toContain("dibandingkan dengan");
-    expect(withPeer).toContain("BBCA dibandingkan dengan BBRI");
+    expect(withoutPeer).not.toContain("antara BBCA dan");
+    expect(withPeer).toContain("antara BBCA dan BBRI");
   });
 
   it("emits the selected prompt so the existing parent flow can fill the chat input", async () => {

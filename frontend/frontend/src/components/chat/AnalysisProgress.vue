@@ -7,6 +7,7 @@ const props = defineProps<{
   title: string;
   note?: string;
   steps: AnalysisProgressStep[];
+  showProgressBar?: boolean;
 }>();
 
 const activeStep = computed(() => activeProgressStep(props.steps));
@@ -20,6 +21,14 @@ const statusIcon = computed(() => {
   if (isError.value) return "pi pi-exclamation-circle";
   if (isComplete.value) return "pi pi-check";
   return "pi pi-sparkles";
+});
+const progressPercent = computed(() => {
+  const total = props.steps.length;
+  if (!total) return 0;
+  if (isComplete.value) return 100;
+  const completed = props.steps.filter((step) => step.status === "completed").length;
+  const runningOffset = isLoading.value ? 0.45 : 0;
+  return Math.round(Math.min(98, Math.max(8, ((completed + runningOffset) / total) * 100)));
 });
 </script>
 
@@ -51,6 +60,16 @@ const statusIcon = computed(() => {
         <i /><i /><i />
       </span>
     </header>
+    <div
+      v-if="props.showProgressBar && isLoading"
+      class="analysis-progress__bar"
+      role="progressbar"
+      :aria-valuenow="progressPercent"
+      aria-valuemin="0"
+      aria-valuemax="100"
+    >
+      <span :style="{ width: `${progressPercent}%` }" />
+    </div>
   </section>
 </template>
 
@@ -110,6 +129,21 @@ const statusIcon = computed(() => {
 }
 .analysis-progress__dots i:nth-child(2) { animation-delay: 0.14s; }
 .analysis-progress__dots i:nth-child(3) { animation-delay: 0.28s; }
+.analysis-progress__bar {
+  height: 6px;
+  margin-top: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(84, 124, 210, 0.16);
+}
+.analysis-progress__bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #6f95ff, #4d73f7);
+  box-shadow: 0 0 14px rgba(77, 115, 247, 0.35);
+  transition: width 0.28s ease;
+}
 .analysis-progress.is-error .analysis-progress__header p {
   color: #8b4a52;
 }
@@ -133,6 +167,7 @@ const statusIcon = computed(() => {
 }
 @media (prefers-reduced-motion: reduce) {
   .analysis-progress__dots i { animation: none; opacity: 0.7; }
+  .analysis-progress__bar span { transition: none; }
   .progress-copy-enter-active,
   .progress-copy-leave-active { transition: none; }
 }

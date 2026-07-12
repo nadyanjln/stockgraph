@@ -10,7 +10,7 @@
     "context_precision_source": "ContextPrecision",
     "dataset_answer": "BBRI mencatat laba bersih bank-only Rp 3,72 triliun pada Januari 2026, meningkat 85,39% secara tahunan.",
     "faithfulness": 1.0,
-    "answer_relevancy": 0.9295119739064979,
+    "answer_relevancy": 0.9298681229726826,
     "context_precision": 0.9999999999,
     "context_recall": 1.0,
     "answer_correctness": 1.0
@@ -26,7 +26,7 @@
     "context_precision_source": "ContextPrecision",
     "dataset_answer": "Untuk menilai BBRI sebagai bank yang fokus pada segmen mikro, faktor fundamental yang relevan adalah pertumbuhan kredit UMKM, pendapatan bunga bersih, kualitas aset, dan biaya pencadangan.",
     "faithfulness": 1.0,
-    "answer_relevancy": 0.9654924578367643,
+    "answer_relevancy": 0.9658784399049584,
     "context_precision": 0.9999999999,
     "context_recall": 1.0,
     "answer_correctness": 0.67
@@ -42,7 +42,7 @@
     "context_precision_source": "ContextPrecision",
     "dataset_answer": "Fundamental ASII secara konsolidasi perlu dilihat dari segmen otomotif, jasa keuangan, alat berat, pertambangan, agribisnis, infrastruktur, dan teknologi informasi.",
     "faithfulness": 1.0,
-    "answer_relevancy": 0.8353130887772423,
+    "answer_relevancy": 0.8353083102531342,
     "context_precision": 0.9999999999,
     "context_recall": 1.0,
     "answer_correctness": 1.0
@@ -58,7 +58,7 @@
     "context_precision_source": "ContextPrecision",
     "dataset_answer": "Nilai maksimal buyback saham ASII adalah Rp 2 triliun, dan free float setelah buyback tidak boleh kurang dari 7,5%.",
     "faithfulness": 1.0,
-    "answer_relevancy": 0.7165036320890201,
+    "answer_relevancy": 0.7164889767064428,
     "context_precision": 0.9999999999,
     "context_recall": 1.0,
     "answer_correctness": 1.0
@@ -74,7 +74,7 @@
     "context_precision_source": "ContextPrecision",
     "dataset_answer": "Saat harga minyak melemah, indikator yang perlu dibaca dari MEDC adalah harga Brent, harga WTI, dan Revenue MEDC 2025.",
     "faithfulness": 1.0,
-    "answer_relevancy": 0.9421862499641849,
+    "answer_relevancy": 0.9422177950354853,
     "context_precision": 0.9999999999,
     "context_recall": 1.0,
     "answer_correctness": 1.0

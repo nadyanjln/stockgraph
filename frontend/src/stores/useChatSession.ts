@@ -46,6 +46,8 @@ const PIPELINE_ANALYSIS_TIMEOUT_MS = 10 * 60_000;
 const PROGRESS_TRANSITION_MS = 900;
 const PROGRESS_STEP_TRANSITION_MS = 260;
 
+type TurnUiMode = "thinking" | "preparing-data";
+
 function createSessionId() {
   return `st-${Math.random().toString(16).slice(2, 12)}`;
 }
@@ -228,7 +230,11 @@ function armTurnTimers(turnId: number, timeoutMs = ANALYSIS_TIMEOUT_MS) {
   }, timeoutMs);
 }
 
-function beginTurn(question: string, timeoutMs = ANALYSIS_TIMEOUT_MS): number {
+function beginTurn(
+  question: string,
+  timeoutMs = ANALYSIS_TIMEOUT_MS,
+  uiMode: TurnUiMode = "thinking",
+): number {
   state.messages.forEach((message) => {
     if (message.role === "assistant" && message.status === "complete") {
       message.progressVisible = false;
@@ -245,27 +251,44 @@ function beginTurn(question: string, timeoutMs = ANALYSIS_TIMEOUT_MS): number {
   });
 
   const assistantId = createMessageId("assistant");
+  const ticker = detectTicker(question);
+  const isPreparingData = uiMode === "preparing-data";
   state.messages.push({
     id: assistantId,
     role: "assistant",
     content: "",
     status: "thinking",
-    thinkingText: "Menganalisis pertanyaan Anda",
-    progressTitle: detectTicker(question)
-      ? `StockGraph sedang menganalisis ${detectTicker(question)}`
-      : "StockGraph sedang menganalisis",
-    progressNote: "Menyiapkan konteks dan sumber analisis.",
-    progressVisible: true,
+    thinkingText: isPreparingData
+      ? "Menyiapkan data laporan keuangan, berita, dan graph..."
+      : "StockGraph sedang berpikir...",
+    progressTitle: isPreparingData
+      ? ticker
+        ? `Menyiapkan data ${ticker}`
+        : "Menyiapkan data analisis"
+      : ticker
+        ? `StockGraph sedang menganalisis ${ticker}`
+        : "StockGraph sedang menganalisis",
+    progressNote: isPreparingData
+      ? "StockGraph sedang mengunduh dan memvalidasi sumber sebelum menyusun jawaban."
+      : "Menyiapkan konteks dan sumber analisis.",
+    progressVisible: isPreparingData,
+    progressBarVisible: isPreparingData,
     progressSteps: createProgressSteps(question),
   });
 
   activeAssistantMessageId = assistantId;
   pendingUserText = question;
-  state.thinkingLog = [
-    "Menyiapkan konteks pertanyaan dan kode saham.",
-    "Memulai pengambilan data finansial dan berita.",
-    "Menganalisis hubungan antarfakta pada graph.",
-  ];
+  state.thinkingLog = isPreparingData
+    ? [
+        "Menyiapkan kode saham dan cakupan analisis.",
+        "Mengunduh laporan keuangan dan berita relevan satu per satu.",
+        "Memvalidasi sumber sebelum data digunakan untuk jawaban.",
+      ]
+    : [
+        "Membaca pertanyaan lanjutan Anda.",
+        "Mengambil konteks dari data yang sudah tersedia.",
+        "Menyiapkan jawaban berbasis evidence.",
+      ];
   state.streamingText = "";
   state.citations = [];
   state.isStreaming = true;
@@ -297,6 +320,7 @@ function finishTurn(content: string, status: "complete" | "error", event?: WsCha
     if (status === "complete") {
       message.progressSteps = completeProgressSteps(message.progressSteps ?? []);
       message.progressTitle = "Analisis siap";
+      message.progressBarVisible = false;
       message.progressNote = message.sources?.length
         ? "Jawaban telah disusun dari evidence dan sumber yang ditemukan."
         : "Sumber terbatas ditemukan, jawaban disusun berdasarkan evidence yang tersedia.";
@@ -542,7 +566,7 @@ export function useChatSession() {
     if (!cleanedQuestion || !params.stockCodes.length || state.isStreaming) return;
 
     const fullQuestion = `[${params.stockCodes.join(", ")}] ${cleanedQuestion}`;
-    const turnId = beginTurn(fullQuestion, PIPELINE_ANALYSIS_TIMEOUT_MS);
+    const turnId = beginTurn(fullQuestion, PIPELINE_ANALYSIS_TIMEOUT_MS, "preparing-data");
     state.pipelineLoading = true;
     state.streamingText = "";
     setStage("question_understanding", "completed");
@@ -592,7 +616,7 @@ export function useChatSession() {
         }
       }
       if (activeTurnId !== turnId || !state.isStreaming) return;
-      updateThinkingText("Menyusun jawaban berdasarkan hasil analisis");
+      updateThinkingText("StockGraph sedang berpikir...");
       await ensureSocket();
       if (activeTurnId !== turnId || !state.isStreaming) return;
       socketClient.send({ session_id: state.sessionId, question: fullQuestion });

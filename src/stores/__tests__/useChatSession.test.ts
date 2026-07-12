@@ -111,7 +111,9 @@ describe("useChatSession progress lifecycle", () => {
     expect(chat.state.messages[0]?.role).toBe("user");
     expect(chat.state.messages[1]?.role).toBe("assistant");
     expect(chat.state.messages[1]?.status).toBe("thinking");
-    expect(chat.state.messages[1]?.progressVisible).toBe(true);
+    expect(chat.state.messages[1]?.progressVisible).toBe(false);
+    expect(chat.state.messages[1]?.progressBarVisible).toBe(false);
+    expect(chat.state.messages[1]?.thinkingText).toBe("StockGraph sedang berpikir...");
     expect(chat.state.messages[1]?.progressSteps?.[0]?.status).toBe("running");
   });
 
@@ -223,6 +225,9 @@ describe("useChatSession progress lifecycle", () => {
     expect(chat.state.pipelineLoading).toBe(true);
     expect(chat.state.isStreaming).toBe(true);
     expect(assistant.status).toBe("thinking");
+    expect(assistant.progressVisible).toBe(true);
+    expect(assistant.progressBarVisible).toBe(true);
+    expect(assistant.progressTitle).toBe("Menyiapkan data BBCA");
 
     await vi.advanceTimersByTimeAsync(480_001);
     assistant = chat.state.messages[1]!;

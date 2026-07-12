@@ -9,7 +9,7 @@ import KnowledgeGraphExplorer from "@/components/graph/KnowledgeGraphExplorer.vu
 import { useResultAnalysis } from "@/composables/useResultAnalysis";
 import { apiClient } from "@/services/apiClient";
 import { useSidebar } from "@/stores/useSidebar";
-import type { KeyFinancialsResponse } from "@/types/api";
+import type { GraphExploreResponse, KeyFinancialsResponse } from "@/types/api";
 import type { SourceItem } from "@/types/chat";
 import { renderMarkdownToHtml } from "@/utils/markdown";
 import { isDisplayableInsightEntity } from "@/utils/insightSnapshot";
@@ -37,6 +37,7 @@ interface ActiveCitation {
 }
 
 const activeCitation = ref<ActiveCitation | null>(null);
+const explorerAnalytics = ref<GraphExploreResponse["analytics"] | null>(null);
 
 const activeCitationSource = computed<SourceItem | null>(() => {
   const active = activeCitation.value;
@@ -162,10 +163,14 @@ function uniqueByOrder(items: string[]): string[] {
 
 const topEntities = computed(() => {
   const entities = state.insightSnapshot?.entities ?? [];
-  return uniqueByOrder(
+  const snapshotEntities = uniqueByOrder(
     entities
       .filter(isDisplayableInsightEntity)
       .map((entity) => entity.label),
+  ).slice(0, 6);
+  if (snapshotEntities.length) return snapshotEntities;
+  return uniqueByOrder(
+    explorerAnalytics.value?.most_connected.map((entity) => entity.label) ?? [],
   ).slice(0, 6);
 });
 
@@ -175,12 +180,18 @@ const topEntitiesText = computed(() => {
 });
 
 const nodeGraphCount = computed(() => {
-  return state.insightSnapshot?.graph_node_count ?? 0;
+  const snapshotCount = state.insightSnapshot?.graph_node_count ?? 0;
+  return snapshotCount || explorerAnalytics.value?.node_count || 0;
 });
 
 const relationGraphCount = computed(() => {
-  return state.insightSnapshot?.graph_relation_count ?? 0;
+  const snapshotCount = state.insightSnapshot?.graph_relation_count ?? 0;
+  return snapshotCount || explorerAnalytics.value?.relationship_count || 0;
 });
+
+function updateExplorerAnalytics(analytics: GraphExploreResponse["analytics"]) {
+  explorerAnalytics.value = analytics;
+}
 
 const insightSourceBasis = computed(() => {
   const snapshot = state.insightSnapshot;
@@ -716,6 +727,7 @@ onBeforeUnmount(() => {
                   :title="msg.progressTitle || 'StockGraph sedang menganalisis'"
                   :note="msg.progressNote"
                   :steps="msg.progressSteps"
+                  :show-progress-bar="msg.progressBarVisible"
                 />
                 <div
                   v-else-if="msg.status === 'thinking'"
@@ -834,6 +846,7 @@ onBeforeUnmount(() => {
         <KnowledgeGraphExplorer
           :stock-codes="stockCodes"
           :refresh-key="state.graphRevision"
+          @analytics="updateExplorerAnalytics"
         />
       </section>
 

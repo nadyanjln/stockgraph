@@ -10,6 +10,9 @@ import type {
 } from "@/types/api";
 
 const props = defineProps<{ stockCodes: string[]; refreshKey?: number }>();
+const emit = defineEmits<{
+  (event: "analytics", analytics: GraphExploreResponse["analytics"]): void;
+}>();
 
 type SemanticKind = GraphNodeKind | "event" | "policy" | "all";
 type GraphMode = "overview" | "focus";
@@ -448,6 +451,7 @@ function mergeResponse(next: GraphExploreResponse, replace = false) {
     articles: [...articles.values()],
     analytics: next.analytics,
   };
+  emit("analytics", graph.value.analytics);
 }
 
 async function loadGraph(nodeId?: string) {

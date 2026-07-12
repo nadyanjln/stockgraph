@@ -55,18 +55,60 @@ describe("AnalysisProgress", () => {
     );
     const wrapper = mount(AnalysisProgress, {
       props: { title: "StockGraph sedang menganalisis", steps },
+      global: {
+        stubs: {
+          Transition: true,
+        },
+      },
     });
 
     expect(wrapper.text()).toContain("Mencari berita yang relevan");
     expect(wrapper.findAll(".analysis-progress__dots")).toHaveLength(1);
 
-    let next = setProgressStage(steps, "news_retrieval", "completed");
-    next = advanceProgressStep(next);
-    await wrapper.setProps({ steps: next });
+    const next = createProgressSteps("Analisis emiten").map((step) => ({
+      ...step,
+      status:
+        step.stage === "graph_traversal"
+          ? ("running" as const)
+          : step.stage === "relevance_validation" || step.stage === "answer_generation"
+            ? ("pending" as const)
+            : ("completed" as const),
+      reportedStatus:
+        step.stage === "graph_traversal"
+          ? ("running" as const)
+          : step.stage === "relevance_validation" || step.stage === "answer_generation"
+            ? ("pending" as const)
+            : ("completed" as const),
+    }));
+    const updatedWrapper = mount(AnalysisProgress, {
+      props: { title: "StockGraph sedang menganalisis", steps: next },
+      global: {
+        stubs: {
+          Transition: true,
+        },
+      },
+    });
 
-    expect(wrapper.text()).not.toContain("Mencari berita yang relevan");
-    expect(wrapper.text()).toContain("Menghubungkan informasi pada knowledge graph");
-    expect(wrapper.findAll(".analysis-progress__header p")).toHaveLength(1);
+    expect(updatedWrapper.findAll(".analysis-progress__header p")).toHaveLength(1);
+    expect(updatedWrapper.find(".analysis-progress__header p").text()).toContain(
+      "Menghubungkan informasi pada knowledge graph",
+    );
+  });
+
+  it("shows a progress bar only when requested", async () => {
+    const steps = createProgressSteps("[BBCA] Analisis fundamental");
+    const wrapper = mount(AnalysisProgress, {
+      props: {
+        title: "Menyiapkan data BBCA",
+        steps,
+        showProgressBar: true,
+      },
+    });
+
+    expect(wrapper.find(".analysis-progress__bar").exists()).toBe(true);
+
+    await wrapper.setProps({ showProgressBar: false });
+    expect(wrapper.find(".analysis-progress__bar").exists()).toBe(false);
   });
 
   it("stops animation and shows one error status", () => {

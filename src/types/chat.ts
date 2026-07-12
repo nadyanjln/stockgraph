@@ -40,6 +40,7 @@ export interface ChatMessage {
   progressTitle?: string;
   progressNote?: string;
   progressVisible?: boolean;
+  progressBarVisible?: boolean;
   progressSteps?: AnalysisProgressStep[];
   sourceSnapshotId?: string;
   citations?: string[];

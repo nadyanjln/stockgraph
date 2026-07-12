@@ -35,36 +35,36 @@ export function buildRecommendations(action: string, rawCodes: string[]): string
 
   if (action === "Learn") {
     return [
-      `Bagaimana cara membaca kinerja ${ticker} dari pendapatan, laba bersih, dan rasio keuangannya?`,
-      `Metrik apa yang paling penting untuk dipantau pada ${ticker}, dan mengapa metrik tersebut relevan?`,
-      `Bagaimana berita terbaru dapat berkaitan dengan perubahan kinerja keuangan ${ticker}?`,
+      `Apakah kondisi bisnis ${ticker} sedang membaik atau melemah dari data terbaru?`,
+      `Apa arti pendapatan, laba bersih, dan rasio keuangan ${ticker} bagi investor awam?`,
+      `Bagian laporan keuangan ${ticker} mana yang paling penting untuk dibaca lebih dulu?`,
     ];
   }
 
   if (action === "Get Advice") {
     return [
-      `Apa tiga risiko utama ${ticker} berdasarkan laporan keuangan dan berita terbaru?`,
-      `Sinyal apa yang perlu saya pantau sebelum mempertimbangkan ${ticker} berdasarkan data yang tersedia?`,
-      `Faktor apa yang dapat memengaruhi prospek ${ticker} dalam beberapa periode ke depan?`,
+      `Apa peluang dan risiko utama ${ticker} yang perlu dipahami sebelum menilai sahamnya?`,
+      `Apa yang bisa membuat harga saham ${ticker} naik atau turun dalam waktu dekat?`,
+      `Apakah valuasi ${ticker} terlihat wajar jika dibandingkan dengan kinerja dan prospeknya?`,
     ];
   }
 
   if (action === "Research") {
     const comparisonPrompt =
       codes.length >= 2
-        ? `Bagaimana kinerja ${codes[0]} dibandingkan dengan ${codes[1]} berdasarkan fundamental dan pemberitaan terbaru?`
-        : `Bagaimana perubahan pendapatan, margin, dan laba bersih ${ticker} berkaitan dengan berita terbaru?`;
+        ? `Mana yang terlihat lebih menarik antara ${codes[0]} dan ${codes[1]} dari sisi kinerja, risiko, dan prospek?`
+        : `Apa faktor terbesar yang sedang memengaruhi prospek bisnis ${ticker} saat ini?`;
 
     return [
-      `Apa hubungan antara perubahan laba bersih ${ticker} dan sentimen dari berita terbaru?`,
-      `Faktor apa yang paling memengaruhi kinerja ${ticker} berdasarkan laporan keuangan, berita, dan kondisi pasar?`,
+      `Apakah kinerja keuangan ${ticker} masih sejalan dengan cerita bisnis dan berita terbarunya?`,
+      `Apa risiko industri atau kondisi ekonomi yang paling berdampak pada ${ticker}?`,
       comparisonPrompt,
     ];
   }
 
   return [
-    `Bagaimana cara membaca kinerja ${ticker} dari pendapatan, laba bersih, dan rasio keuangannya?`,
-    `Apa tiga risiko utama ${ticker} berdasarkan laporan keuangan dan berita terbaru?`,
-    `Apa hubungan antara perubahan laba bersih ${ticker} dan sentimen dari berita terbaru?`,
+    `Apakah kondisi bisnis ${ticker} sedang membaik atau melemah dari data terbaru?`,
+    `Apa peluang dan risiko utama ${ticker} yang perlu dipahami sebelum menilai sahamnya?`,
+    `Apa faktor terbesar yang sedang memengaruhi prospek bisnis ${ticker} saat ini?`,
   ];
 }
