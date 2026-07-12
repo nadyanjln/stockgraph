@@ -1,67 +1,42 @@
 [
   {
-    "question": "[BBRI] Dari sisi fundamental, apakah kualitas bisnis BBRI masih terlihat kuat untuk jangka menengah?",
-    "answer": "Fundamental BBRI masih dapat dinilai kuat apabila pertumbuhan kredit mikro tetap berjalan, pendapatan bunga bersih terjaga, dan kualitas aset tidak memburuk. Namun, investor tetap perlu memantau biaya pencadangan, efisiensi operasional, serta sensitivitas segmen UMKM terhadap perubahan kondisi ekonomi.",
-    "ground_truth": "BBRI memiliki fundamental yang didukung bisnis mikro, pendapatan bunga, dan jaringan luas, tetapi kualitas aset, pencadangan, dan efisiensi tetap menjadi faktor utama yang harus dipantau.",
+    "question": "[BBRI] Berapa laba bersih bank-only BBRI pada Januari 2026 dan bagaimana pertumbuhannya secara tahunan?",
+    "answer": "BBRI mencatat laba bersih bank-only Rp 3,72 triliun pada Januari 2026, meningkat 85,39% secara tahunan.",
+    "ground_truth": "Pada Januari 2026, laba bersih bank-only BBRI sebesar Rp 3,72 triliun dan tumbuh 85,39% secara tahunan.",
     "contexts": [
-      "Ringkasan fundamental menunjukkan BBRI memiliki fokus bisnis pada segmen mikro, kecil, dan menengah sehingga pertumbuhan kredit UMKM menjadi penggerak utama pendapatan bunga.",
-      "Laporan keuangan bank mencatat pendapatan bunga bersih sebagai komponen penting dalam laba operasional karena mayoritas bisnis BBRI berasal dari aktivitas intermediasi.",
-      "Kualitas aset menjadi indikator penting bagi BBRI karena kenaikan kredit bermasalah dapat meningkatkan biaya pencadangan dan menekan laba bersih.",
-      "Data operasional menunjukkan jaringan layanan dan basis nasabah mikro yang luas memberi BBRI keunggulan distribusi dibanding bank yang tidak fokus pada segmen tersebut.",
-      "Berita bisnis perbankan menyoroti bahwa permintaan kredit UMKM dapat dipengaruhi oleh daya beli masyarakat, suku bunga, dan aktivitas ekonomi domestik.",
-      "Knowledge graph menghubungkan BBRI dengan tema kredit mikro, profitabilitas bank, kualitas aset, dan ekonomi domestik sebagai faktor yang relevan terhadap kinerja fundamental."
+      "BBRI mencatat laba bersih bank-only Rp 3,72 triliun pada Januari 2026, meningkat 85,39% secara tahunan."
     ]
   },
   {
-    "question": "[ASII] Apa yang perlu dibaca dari fundamental ASII kalau pendapatan otomotif sedang berubah?",
-    "answer": "Fundamental ASII perlu dibaca secara konsolidasi karena bisnisnya tidak hanya bergantung pada otomotif. Pendapatan otomotif tetap penting, tetapi kontribusi alat berat, jasa keuangan, agribisnis, dan anak usaha lain dapat membantu menahan volatilitas jika satu segmen melemah.",
-    "ground_truth": "ASII harus dinilai dari kontribusi beberapa segmen usaha, bukan hanya otomotif, karena diversifikasi anak usaha memengaruhi stabilitas pendapatan dan laba konsolidasi.",
+    "question": "[BBRI] Faktor fundamental apa yang relevan untuk menilai BBRI sebagai bank yang fokus pada segmen mikro?",
+    "answer": "Untuk menilai BBRI sebagai bank yang fokus pada segmen mikro, faktor fundamental yang relevan adalah pertumbuhan kredit UMKM, pendapatan bunga bersih, kualitas aset, dan biaya pencadangan.",
+    "ground_truth": "BBRI dinilai dari pertumbuhan kredit UMKM, pendapatan bunga bersih, kualitas aset, dan biaya pencadangan.",
     "contexts": [
-      "Profil perusahaan menunjukkan ASII memiliki portofolio bisnis yang mencakup otomotif, jasa keuangan, alat berat, pertambangan, agribisnis, infrastruktur, dan teknologi informasi.",
-      "Laporan keuangan konsolidasian menyajikan pendapatan dari beberapa segmen sehingga perubahan pada segmen otomotif tidak selalu mencerminkan keseluruhan kinerja ASII.",
-      "Segmen alat berat dan pertambangan dapat memberi kontribusi ketika permintaan komoditas dan aktivitas tambang mendukung penjualan alat berat.",
-      "Bisnis jasa keuangan ASII berhubungan dengan pembiayaan kendaraan sehingga kinerja segmen ini tetap berkaitan dengan siklus penjualan otomotif.",
-      "Berita industri otomotif sering mengaitkan penjualan kendaraan dengan suku bunga kredit, daya beli konsumen, dan kebijakan insentif kendaraan.",
-      "Knowledge graph menempatkan ASII dalam relasi dengan sektor otomotif, alat berat, pembiayaan, dan konsumsi domestik sebagai faktor yang bersama-sama memengaruhi fundamental."
+      "BBRI berfokus pada segmen mikro, kecil, dan menengah; faktor fundamental yang relevan untuk menilainya adalah pertumbuhan kredit UMKM, pendapatan bunga bersih, kualitas aset, dan biaya pencadangan."
     ]
   },
   {
-    "question": "[ICBP] Kalau biaya bahan baku naik, bagian fundamental apa yang paling perlu diperhatikan?",
-    "answer": "Pada ICBP, kenaikan biaya bahan baku perlu dibaca melalui margin laba, kemampuan menaikkan harga jual, volume penjualan, serta efisiensi produksi. Kekuatan merek dapat membantu menjaga permintaan, tetapi tekanan biaya tetap dapat mengurangi profitabilitas jika tidak diimbangi harga dan efisiensi.",
-    "ground_truth": "Kenaikan biaya bahan baku ICBP terutama berdampak pada margin, harga jual, volume, dan efisiensi, dengan kekuatan merek sebagai faktor penahan risiko.",
+    "question": "[ASII] Segmen bisnis apa saja yang perlu dilihat ketika membaca fundamental ASII secara konsolidasi?",
+    "answer": "Fundamental ASII secara konsolidasi perlu dilihat dari segmen otomotif, jasa keuangan, alat berat, pertambangan, agribisnis, infrastruktur, dan teknologi informasi.",
+    "ground_truth": "ASII perlu dinilai secara konsolidasi melalui segmen otomotif, jasa keuangan, alat berat, pertambangan, agribisnis, infrastruktur, dan teknologi informasi.",
     "contexts": [
-      "ICBP memiliki portofolio produk konsumen bermerek seperti mi instan, dairy, makanan ringan, penyedap makanan, nutrisi, dan minuman.",
-      "Laporan laba rugi perusahaan consumer goods menunjukkan margin laba dapat tertekan ketika biaya bahan baku dan kemasan naik lebih cepat daripada penyesuaian harga jual.",
-      "Kekuatan merek dan jaringan distribusi membantu perusahaan mempertahankan volume penjualan meskipun terjadi perubahan harga pada produk tertentu.",
-      "Berita industri makanan kemasan sering menyoroti harga gandum, minyak, energi, dan nilai tukar sebagai faktor yang memengaruhi biaya produksi.",
-      "Efisiensi produksi dan pengendalian biaya operasional menjadi faktor pendukung ketika perusahaan menghadapi kenaikan biaya input.",
-      "Knowledge graph mengaitkan ICBP dengan consumer branded products, biaya bahan baku, margin laba, dan daya beli konsumen sebagai konteks fundamental yang saling berhubungan."
+      "Fundamental ASII secara konsolidasi perlu dilihat dari portofolio bisnis otomotif, jasa keuangan, alat berat, pertambangan, agribisnis, infrastruktur, dan teknologi informasi."
     ]
   },
   {
-    "question": "[SIDO] Bagaimana menilai kekuatan bisnis SIDO dari laporan keuangan dan karakter produknya?",
-    "answer": "Kekuatan bisnis SIDO dapat dinilai dari stabilitas penjualan produk kesehatan, margin laba, posisi kas, arus kas operasi, dan kemampuan mempertahankan dividen. Karakter produk yang berulang dikonsumsi memberi dukungan, tetapi pertumbuhan tetap bergantung pada distribusi dan permintaan konsumen.",
-    "ground_truth": "SIDO dinilai dari penjualan, margin, kas, arus kas operasi, dividen, serta kekuatan produk kesehatan yang memiliki permintaan berulang.",
+    "question": "[ASII] Berapa nilai maksimal buyback saham ASII dan batas free float yang perlu diperhatikan?",
+    "answer": "Nilai maksimal buyback saham ASII adalah Rp 2 triliun, dan free float setelah buyback tidak boleh kurang dari 7,5%.",
+    "ground_truth": "Buyback saham ASII bernilai maksimal Rp 2 triliun, dengan batas free float setelah buyback tidak kurang dari 7,5%.",
     "contexts": [
-      "SIDO bergerak pada produk herbal, suplemen, minuman kesehatan, dan produk konsumen yang permintaannya berkaitan dengan kesehatan masyarakat.",
-      "Laporan keuangan menunjukkan penjualan dan laba bersih menjadi indikator utama untuk menilai apakah permintaan produk tetap terjaga.",
-      "Margin laba penting bagi SIDO karena perusahaan consumer health perlu menjaga efisiensi produksi, biaya distribusi, dan pengeluaran pemasaran.",
-      "Posisi kas dan arus kas operasi dapat digunakan untuk menilai kemampuan perusahaan membiayai operasional serta mempertahankan kebijakan dividen.",
-      "Berita bisnis konsumen sering menghubungkan penjualan produk kesehatan dengan daya beli, kanal distribusi, dan kekuatan merek di pasar domestik.",
-      "Knowledge graph menghubungkan SIDO dengan tema consumer health, penjualan berulang, margin laba, arus kas, dan dividen sebagai evidence fundamental."
+      "ASII menyiapkan buyback saham dengan jumlah maksimal Rp 2 triliun, dan free float setelah buyback tidak akan menjadi kurang dari 7,5% dari modal ditempatkan dan disetor."
     ]
   },
   {
-    "question": "[BMRI] Rasio apa yang paling penting untuk membaca profitabilitas Bank Mandiri?",
-    "answer": "Profitabilitas BMRI terutama dapat dibaca dari NIM, ROE, ROA, efisiensi biaya, kualitas aset, dan pertumbuhan laba bersih. Rasio tersebut perlu dilihat bersama karena laba bank dipengaruhi oleh margin bunga, skala kredit, biaya operasional, dan pencadangan.",
-    "ground_truth": "Rasio utama BMRI meliputi NIM, ROE, ROA, efisiensi, kualitas aset, dan laba bersih karena semuanya memengaruhi profitabilitas bank.",
+    "question": "[MEDC] Saat harga minyak melemah, indikator apa yang perlu dibaca dari MEDC?",
+    "answer": "Saat harga minyak melemah, indikator yang perlu dibaca dari MEDC adalah harga Brent, harga WTI, dan Revenue MEDC 2025.",
+    "ground_truth": "Indikator yang perlu dibaca dari MEDC saat harga minyak melemah adalah harga Brent, harga WTI, dan Revenue MEDC 2025.",
     "contexts": [
-      "Laporan keuangan bank menggunakan pendapatan bunga bersih sebagai ukuran penting karena margin bunga menentukan kemampuan bank menghasilkan laba dari kredit.",
-      "ROE menunjukkan kemampuan BMRI menghasilkan laba terhadap ekuitas sehingga rasio ini relevan untuk menilai imbal hasil modal pemegang saham.",
-      "ROA membantu membaca efisiensi penggunaan aset bank karena aset produktif seperti kredit dan surat berharga menjadi sumber pendapatan utama.",
-      "Rasio efisiensi operasional penting karena biaya tenaga kerja, teknologi, dan jaringan kantor dapat mengurangi laba sebelum pajak.",
-      "Kualitas aset memengaruhi profitabilitas karena peningkatan kredit bermasalah dapat mendorong biaya pencadangan yang lebih tinggi.",
-      "Berita sektor perbankan sering mengaitkan profitabilitas bank besar dengan pertumbuhan kredit korporasi, biaya dana, dan perubahan suku bunga acuan."
+      "Saat harga minyak melemah, indikator yang perlu dibaca dari MEDC adalah harga Brent, harga WTI, dan Revenue MEDC 2025."
     ]
   }
 ]
