@@ -3,13 +3,13 @@
   "success": 25,
   "failed": 0,
   "success_percentage": 100.0,
-  "evaluation_time_seconds": 4172.100387600018,
-  "evaluation_time": "1h 9m 32s",
+  "evaluation_time_seconds": 4161.538718600001,
+  "evaluation_time": "1h 9m 22s",
   "averages": {
-    "faithfulness": 0.9652380952380952,
-    "answer_relevancy": 0.8292609459907002,
+    "faithfulness": 0.9786666666666668,
+    "answer_relevancy": 0.8614870342296164,
     "context_precision": 0.9933333332383333,
     "context_recall": 1.0,
-    "answer_correctness": 0.9564
+    "answer_correctness": 0.9528
   }
 }

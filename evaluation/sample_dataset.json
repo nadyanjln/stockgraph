@@ -17,7 +17,7 @@
   },
   {
     "question": "[ASII] Segmen bisnis apa saja yang perlu dilihat ketika membaca fundamental ASII secara konsolidasi?",
-    "answer": "Fundamental ASII secara konsolidasi perlu dilihat dari segmen otomotif, jasa keuangan, alat berat, pertambangan, agribisnis, infrastruktur, dan teknologi informasi.",
+    "answer": "Segmen bisnis yang perlu dilihat dalam fundamental ASII secara konsolidasi adalah otomotif, jasa keuangan, alat berat, pertambangan, agribisnis, infrastruktur, dan teknologi informasi.",
     "ground_truth": "ASII perlu dinilai secara konsolidasi melalui segmen otomotif, jasa keuangan, alat berat, pertambangan, agribisnis, infrastruktur, dan teknologi informasi.",
     "contexts": [
       "Fundamental ASII secara konsolidasi perlu dilihat dari portofolio bisnis otomotif, jasa keuangan, alat berat, pertambangan, agribisnis, infrastruktur, dan teknologi informasi."
@@ -25,7 +25,7 @@
   },
   {
     "question": "[ASII] Berapa nilai maksimal buyback saham ASII dan batas free float yang perlu diperhatikan?",
-    "answer": "Nilai maksimal buyback ASII adalah Rp 2 triliun, sedangkan batas free float setelah buyback adalah minimum 7,5%.",
+    "answer": "Nilai maksimal buyback saham ASII adalah Rp 2 triliun, sedangkan batas free float yang perlu dipertahankan setelah buyback adalah minimum 7,5%.",
     "ground_truth": "Buyback saham ASII bernilai maksimal Rp 2 triliun, dengan batas free float setelah buyback tidak kurang dari 7,5%.",
     "contexts": [
       "ASII menyiapkan buyback saham dengan jumlah maksimal Rp 2 triliun, dan free float setelah buyback tidak akan menjadi kurang dari 7,5% dari modal ditempatkan dan disetor."
@@ -77,7 +77,7 @@
   },
   {
     "question": "[TLKM] Apa tiga risiko utama bisnis TLKM dan bagaimana dampaknya?",
-    "answer": "Risiko utama TLKM adalah tekanan pendapatan per pengguna akibat persaingan harga, kebutuhan belanja modal jaringan yang besar, dan ketergantungan pada monetisasi data setelah pelanggan beralih dari layanan suara.",
+    "answer": "Tiga risiko utama bisnis TLKM beserta dampaknya adalah persaingan harga yang menekan pendapatan per pengguna, belanja modal jaringan yang membutuhkan biaya besar, dan peralihan dari suara ke data yang menuntut monetisasi digital.",
     "ground_truth": "TLKM menghadapi risiko persaingan harga yang menekan pendapatan per pengguna, investasi jaringan yang besar, serta peralihan konsumsi suara ke data yang menuntut monetisasi digital.",
     "contexts": [
       "Tiga risiko utama bisnis TLKM adalah persaingan harga, belanja modal jaringan, dan peralihan konsumsi dari suara ke data. Persaingan dapat menekan pendapatan per pengguna, investasi jaringan membutuhkan biaya besar, sedangkan peralihan ke data membuat pertumbuhan bergantung pada monetisasi layanan digital."
@@ -85,7 +85,7 @@
   },
   {
     "question": "[ICBP] Bagaimana biaya bahan baku, kekuatan merek, dan distribusi memengaruhi margin ICBP?",
-    "answer": "Biaya bahan baku dan produksi memengaruhi beban ICBP, kekuatan merek mendukung penyesuaian harga, dan distribusi menjaga volume serta efisiensi sehingga ketiganya menentukan margin.",
+    "answer": "Biaya bahan baku dan produksi memengaruhi beban ICBP, kekuatan merek mendukung penyesuaian harga, dan distribusi menjaga volume serta efisiensi; ketiga faktor tersebut memengaruhi margin ICBP.",
     "ground_truth": "ICBP menjaga margin melalui pengendalian biaya bahan baku dan produksi, daya merek untuk menyesuaikan harga, serta jaringan distribusi yang menopang penjualan dan efisiensi.",
     "contexts": [
       "Margin ICBP ditentukan oleh tiga kelompok faktor. Biaya gandum, minyak, kemasan, dan produksi memengaruhi beban usaha; kekuatan merek mendukung penyesuaian harga tanpa langsung kehilangan permintaan; sedangkan jaringan distribusi membantu menjaga volume penjualan dan efisiensi pemasaran serta logistik."
@@ -93,7 +93,7 @@
   },
   {
     "question": "[INDF, ICBP] Apa perbedaan utama diversifikasi bisnis INDF dan ICBP?",
-    "answer": "Perbedaan utama diversifikasinya adalah INDF mencakup produk konsumen, bogasari, agribisnis, dan distribusi, sedangkan ICBP berfokus pada produk konsumen bermerek.",
+    "answer": "Perbedaan utama diversifikasi bisnis INDF dan ICBP adalah INDF mencakup produk konsumen, bogasari, agribisnis, dan distribusi, sedangkan ICBP berfokus pada produk konsumen bermerek.",
     "ground_truth": "Portofolio INDF mencakup produk konsumen, bogasari, agribisnis, dan distribusi, sementara kegiatan ICBP berfokus pada produk konsumen bermerek.",
     "contexts": [
       "Perbedaan diversifikasi INDF dan ICBP terlihat dari cakupan segmennya. INDF memiliki produk konsumen bermerek, bogasari, agribisnis, dan distribusi, sedangkan ICBP lebih terkonsentrasi pada produk konsumen bermerek seperti makanan olahan dan minuman."
@@ -101,7 +101,7 @@
   },
   {
     "question": "[PTBA] Bagaimana harga jual, volume penjualan, dan biaya produksi memengaruhi pendapatan serta margin PTBA?",
-    "answer": "Harga jual rata-rata dan volume batu bara menentukan pendapatan PTBA, sedangkan biaya produksi menentukan besarnya margin yang diperoleh perusahaan.",
+    "answer": "Harga jual dan volume penjualan batu bara menentukan pendapatan PTBA, sedangkan biaya produksi memengaruhi margin perusahaan.",
     "ground_truth": "Pendapatan PTBA dibentuk oleh harga dan volume penjualan batu bara, sementara margin bergantung pada biaya produksinya.",
     "contexts": [
       "Kinerja PTBA berkaitan langsung dengan harga jual, volume penjualan, dan biaya produksi batu bara. Harga jual rata-rata bersama volume menentukan pendapatan, sedangkan selisih antara penerimaan penjualan dan biaya produksi memengaruhi margin perusahaan."
@@ -125,7 +125,7 @@
   },
   {
     "question": "[CPIN] Kapan kenaikan biaya bahan baku mulai menekan margin CPIN?",
-    "answer": "Kenaikan biaya bahan baku mulai menekan margin CPIN ketika biaya pakan yang lebih tinggi tidak dapat diteruskan ke harga jual ayam dan produk unggas.",
+    "answer": "Kenaikan biaya bahan baku mulai menekan margin CPIN ketika biaya pakan yang lebih tinggi tidak dapat diimbangi melalui harga jual ayam dan produk unggas.",
     "ground_truth": "Margin CPIN tertekan apabila kenaikan biaya bahan baku pakan tidak dapat diimbangi melalui harga jual produk unggas.",
     "contexts": [
       "Biaya pakan CPIN dipengaruhi harga bahan baku seperti jagung dan bungkil kedelai. Kenaikan biaya tersebut menekan margin apabila perusahaan tidak dapat meneruskannya ke harga jual ayam dan produk unggas."
@@ -149,7 +149,7 @@
   },
   {
     "question": "[PGAS] Bagaimana volume distribusi dan selisih harga menentukan kinerja PGAS?",
-    "answer": "Volume distribusi menentukan aktivitas penjualan PGAS, sedangkan selisih harga pasokan kontrak dengan harga jual menentukan margin niaga perusahaan.",
+    "answer": "Volume distribusi memengaruhi kinerja PGAS melalui aktivitas penjualan, sedangkan selisih harga pasokan kontrak dan harga jual menentukan margin niaga.",
     "ground_truth": "Penjualan PGAS bergantung pada volume distribusi gas, sementara margin niaganya berasal dari perbedaan harga beli kontrak dan harga jual.",
     "contexts": [
       "Dua indikator utama kinerja PGAS adalah volume distribusi dan margin niaga. Volume gas yang disalurkan menentukan aktivitas penjualan, sedangkan margin niaga ditentukan oleh selisih harga pasokan dalam kontrak dengan harga jual kepada pelanggan."
@@ -157,7 +157,7 @@
   },
   {
     "question": "[JSMR] Bagaimana volume kendaraan, tarif tol, dan beban bunga memengaruhi pendapatan serta laba JSMR?",
-    "answer": "Volume kendaraan dan tarif tol menentukan pendapatan JSMR, sedangkan beban bunga atas pendanaan proyek jalan tol memengaruhi laba bersihnya.",
+    "answer": "Volume kendaraan dan tarif tol memengaruhi pendapatan JSMR, sedangkan beban bunga atas pendanaan proyek jalan tol memengaruhi laba bersih perusahaan.",
     "ground_truth": "Pendapatan JSMR berasal dari lalu lintas dan tarif tol, sementara laba bersihnya dipengaruhi bunga atas utang proyek jalan tol.",
     "contexts": [
       "Kinerja JSMR dipengaruhi volume lalu lintas, tarif tol, dan beban bunga. Volume kendaraan bersama tarif menentukan pendapatan tol, sedangkan beban bunga atas utang pembangunan jalan memengaruhi laba bersih perusahaan."
@@ -165,7 +165,7 @@
   },
   {
     "question": "[KLBF] Mengapa KLBF dianggap defensif dan faktor apa yang tetap dapat menekan marginnya?",
-    "answer": "KLBF dianggap defensif karena permintaan produk kesehatan relatif stabil, tetapi marginnya tetap dipengaruhi harga bahan baku, pergerakan kurs, dan kemampuan menyesuaikan harga jual.",
+    "answer": "KLBF dianggap defensif karena permintaan produk kesehatan relatif stabil, sedangkan marginnya tetap dipengaruhi harga bahan baku, pergerakan kurs, dan kemampuan menyesuaikan harga jual.",
     "ground_truth": "Stabilitas permintaan kesehatan mendukung karakter defensif KLBF, sementara biaya bahan baku, nilai tukar, dan kemampuan menaikkan harga memengaruhi margin.",
     "contexts": [
       "Karakter defensif KLBF berasal dari bisnis farmasi, produk kesehatan, distribusi, dan nutrisi yang melayani kebutuhan dengan permintaan relatif stabil. Meskipun demikian, margin perusahaan tetap dipengaruhi harga bahan baku, pergerakan kurs, dan kemampuan menyesuaikan harga jual."
@@ -173,7 +173,7 @@
   },
   {
     "question": "[BRIS] Apa yang membedakan analisis fundamental BRIS dari bank konvensional?",
-    "answer": "Fundamental BRIS berbeda dari bank konvensional karena mencakup pembiayaan dan pendanaan syariah, kualitas pembiayaan, serta permintaan layanan dari ekosistem halal.",
+    "answer": "Perbedaan analisis fundamental BRIS dari bank konvensional terletak pada pembiayaan dan pendanaan berbasis syariah, kualitas pembiayaan, serta permintaan layanan dari ekosistem halal.",
     "ground_truth": "Fundamental BRIS dinilai melalui pembiayaan dan pendanaan syariah, pengelolaan kualitas pembiayaan, dan perkembangan permintaan dalam ekosistem halal.",
     "contexts": [
       "Fundamental BRIS berbeda dari bank konvensional karena penyaluran pembiayaan dan penghimpunan dana dilakukan melalui produk berbasis syariah. Penilaiannya juga mencakup kualitas pembiayaan yang memengaruhi pencadangan serta pertumbuhan ekosistem halal yang mendorong permintaan layanan."
@@ -181,23 +181,23 @@
   },
   {
     "question": "[UNVR] Bagaimana persaingan merek memengaruhi margin dan pangsa pasar UNVR?",
-    "answer": "Persaingan merek memengaruhi UNVR melalui promosi harga yang menekan margin, sementara kekuatan merek, inovasi, dan distribusi membantu mempertahankan pangsa pasar serta loyalitas konsumen.",
-    "ground_truth": "Margin UNVR berisiko tertekan oleh persaingan harga, sementara merek, inovasi, dan jangkauan distribusi menopang pangsa pasar dan loyalitas pelanggan.",
+    "answer": "Persaingan dan promosi harga dapat menekan margin UNVR, sedangkan kekuatan merek, inovasi, dan distribusi membantu mempertahankan pangsa pasar.",
+    "ground_truth": "Persaingan harga menekan margin UNVR, sementara merek, inovasi, dan jangkauan distribusi menopang pangsa pasar perusahaan.",
     "contexts": [
       "UNVR menghadapi persaingan merek lokal dan global pada produk konsumsi harian. Promosi harga untuk mempertahankan volume dapat menekan margin, sedangkan kekuatan merek, inovasi produk, dan distribusi yang luas membantu menjaga pangsa pasar serta loyalitas konsumen."
     ]
   },
   {
     "question": "[MDKA] Bagaimana produksi, harga mineral, belanja modal, dan perkembangan proyek memengaruhi prospek MDKA?",
-    "answer": "Prospek MDKA dipengaruhi volume produksi dan harga mineral sebagai pendorong pendapatan, serta belanja modal dan perkembangan proyek sebagai penentu kebutuhan kas, kapasitas, dan arus kas.",
-    "ground_truth": "Prospek MDKA bergantung pada produksi dan harga sebagai pendorong pendapatan, serta belanja modal dan pelaksanaan proyek sebagai penentu arus kas dan tambahan kapasitas.",
+    "answer": "Produksi dan harga mineral memengaruhi prospek MDKA melalui pendapatan, sedangkan belanja modal membutuhkan kas dan keterlambatan proyek dapat menunda tambahan kapasitas serta arus kas.",
+    "ground_truth": "Prospek MDKA bergantung pada produksi dan harga sebagai pendorong pendapatan, sementara belanja modal dan pelaksanaan proyek memengaruhi kebutuhan kas, kapasitas, dan arus kas.",
     "contexts": [
       "Prospek MDKA dipengaruhi kinerja operasi dan pengembangan proyek. Volume produksi bersama harga jual mineral menentukan pendapatan, sementara belanja modal membutuhkan kas sebelum proyek menghasilkan; keterlambatan konstruksi atau produksi juga dapat menunda tambahan kapasitas dan arus kas."
     ]
   },
   {
     "question": "[TPIA] Bagaimana spread petrokimia, permintaan industri, dan utilisasi pabrik memengaruhi risiko TPIA?",
-    "answer": "Risiko TPIA dipengaruhi spread yang menyempit akibat kenaikan naphtha, perubahan penjualan akibat permintaan industri, dan kenaikan biaya per unit ketika utilisasi pabrik rendah.",
+    "answer": "Spread petrokimia memengaruhi risiko TPIA ketika kenaikan naphtha mempersempit margin, permintaan industri memengaruhi penjualan, dan utilisasi pabrik yang rendah meningkatkan biaya tetap per unit.",
     "ground_truth": "TPIA menghadapi risiko penyempitan margin akibat bahan baku, perubahan penjualan akibat permintaan industri, dan kenaikan biaya per unit ketika utilisasi rendah.",
     "contexts": [
       "Risiko TPIA berasal dari spread, permintaan, dan utilisasi. Kenaikan harga naphtha yang tidak diikuti harga jual mempersempit spread serta margin, perubahan permintaan industri memengaruhi penjualan, dan utilisasi pabrik yang rendah meningkatkan biaya tetap per unit."
