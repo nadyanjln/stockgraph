@@ -88,6 +88,8 @@ class GraphRAGEngine:
         self._embedder_model = embedder_model
         self._embedder_dim = embedder_dim
         self._instances: dict[int, GraphRAG] = {}
+        self._query_cache: dict[tuple[int, str, bool], QueryResult] = {}
+        self._query_inflight: dict[tuple[int, str, bool], asyncio.Task[Any]] = {}
         self._available_years: list[int] = []
         self._is_available = False
         self._last_health_check = 0.0
@@ -217,6 +219,7 @@ class GraphRAGEngine:
             except Exception as exc:
                 print(f"[GraphRAG {year}] ingest fail {doc_id[:60]}: {exc}")
         await rag.finalize()
+        self._query_cache.clear()
 
     async def ingest_documents(
         self,
@@ -253,6 +256,7 @@ class GraphRAGEngine:
 
         try:
             await asyncio.wait_for(rag.finalize(), timeout=self._finalize_timeout)
+            self._query_cache.clear()
         except Exception as exc:
             stats.errors += 1
             stats.error_messages.append(f"finalize: {exc}")
@@ -261,6 +265,18 @@ class GraphRAGEngine:
 
     async def _ingest_text(self, rag: GraphRAG, text: str, document_id: str):
         """Call GraphRAG-SDK ingest across minor API variants."""
+        logger.info(
+            "openai_request=%s",
+            {
+                "file_function": "app.services.database.graphrag_engine.GraphRAGEngine._ingest_text",
+                "purpose": "GraphRAG Entity/Relation Extraction and Embedding",
+                "endpoint": "graphrag_sdk.rag.ingest",
+                "model": self._llm_model,
+                "embedder_model": self._embedder_model,
+                "document_id": document_id,
+                "document_chars": len(text),
+            },
+        )
         try:
             return await rag.ingest(text=text, document_id=document_id)
         except TypeError:
@@ -268,6 +284,50 @@ class GraphRAGEngine:
                 return await rag.ingest(document_id, text=text)
             except TypeError:
                 return await rag.ingest(text)
+
+    async def _completion_once(
+        self,
+        rag: GraphRAG,
+        cache_key: tuple[int, str, bool],
+        question: str,
+        return_context: bool,
+    ) -> Any:
+        """Share one in-flight GraphRAG completion for identical query requests."""
+        existing = self._query_inflight.get(cache_key)
+        if existing is not None:
+            logger.info(
+                "graphrag_query_inflight_hit=%s",
+                {
+                    "year": cache_key[0],
+                    "return_context": return_context,
+                    "question_chars": len(question),
+                },
+            )
+            return await asyncio.shield(existing)
+
+        logger.info(
+            "openai_request=%s",
+            {
+                "file_function": "app.services.database.graphrag_engine.GraphRAGEngine.query",
+                "purpose": "GraphRAG Semantic Retrieval",
+                "endpoint": "graphrag_sdk.rag.completion",
+                "model": self._llm_model,
+                "embedder_model": self._embedder_model,
+                "year": cache_key[0],
+                "return_context": return_context,
+            },
+        )
+        task = asyncio.create_task(
+            rag.completion(question, return_context=return_context)
+        )
+        self._query_inflight[cache_key] = task
+
+        def clear_finished(done: asyncio.Task[Any]) -> None:
+            if self._query_inflight.get(cache_key) is done:
+                self._query_inflight.pop(cache_key, None)
+
+        task.add_done_callback(clear_finished)
+        return await asyncio.shield(task)
 
     async def query(
         self,
@@ -300,9 +360,27 @@ class GraphRAGEngine:
                 question=question, answer="Belum ada data graph.", year=0,
             )
 
+        cache_key = (target_year, question, return_context)
+        cached = self._query_cache.get(cache_key)
+        if cached is not None:
+            logger.info(
+                "graphrag_query_cache_hit=%s",
+                {
+                    "year": target_year,
+                    "return_context": return_context,
+                    "question_chars": len(question),
+                },
+            )
+            return cached
+
         rag = await self._get_or_create(target_year)
         try:
-            response = await rag.completion(question, return_context=return_context)
+            response = await self._completion_once(
+                rag,
+                cache_key,
+                question,
+                return_context,
+            )
         except Exception as exc:
             return QueryResult(
                 question=question,
@@ -446,7 +524,7 @@ class GraphRAGEngine:
 
         clean_sources = [{k: v for k, v in item.items() if k != "_key"} for item in sources[:8]]
 
-        return QueryResult(
+        result = QueryResult(
             question=question,
             answer=getattr(response, "answer", str(response)),
             year=target_year,
@@ -454,6 +532,10 @@ class GraphRAGEngine:
             citations=list(dict.fromkeys(citations))[:8],
             sources=clean_sources,
         )
+        if len(self._query_cache) >= 64:
+            self._query_cache.pop(next(iter(self._query_cache)))
+        self._query_cache[cache_key] = result
+        return result
 
     async def close(self) -> None:
         """Cleanup semua GraphRAG instances."""
@@ -462,6 +544,9 @@ class GraphRAGEngine:
                 await rag.__aexit__(None, None, None)
             except Exception:
                 pass
+        for task in self._query_inflight.values():
+            task.cancel()
+        self._query_inflight.clear()
         self._instances.clear()
 
 

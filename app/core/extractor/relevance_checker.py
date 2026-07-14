@@ -1,10 +1,9 @@
 import json
-import os
 from dataclasses import dataclass
 
 from dotenv import load_dotenv
-from openai import OpenAI
 
+from app.core.openai_client import chat_completion
 from app.core.extractor.llm_extractor import ExtractionResult
 
 load_dotenv()
@@ -100,8 +99,6 @@ def check_relevance(
     Returns:
         RelevanceScore dengan field passed=True jika relevance >= threshold
     """
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
     user_prompt = _JUDGE_TEMPLATE.format(
         stock_code=extraction.stock_code,
         company_name=company_name or extraction.stock_code,
@@ -111,7 +108,9 @@ def check_relevance(
         relations_text=_format_relations(extraction),
     )
 
-    response = client.chat.completions.create(
+    response = chat_completion(
+        caller="app.core.extractor.relevance_checker.check_relevance",
+        purpose="Evidence Relevance Judge",
         model=model,
         messages=[
             {"role": "system", "content": _JUDGE_SYSTEM},

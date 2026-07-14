@@ -455,6 +455,24 @@ def rewrite_queries(question: str) -> QueryPlan:
     return plan
 
 
+def semantic_retrieval_prompt(question: str, query_plan: QueryPlan | None = None) -> str:
+    """Build one shared semantic retrieval prompt for all specialist agents."""
+    plan = query_plan or rewrite_queries(question)
+    return (
+        "Ambil konteks paling relevan untuk menjawab pertanyaan saham berikut. "
+        "Prioritaskan konteks yang menyebut ticker/perusahaan target secara langsung "
+        "dan benar-benar menjawab pertanyaan, bukan berita pasar umum. "
+        "Sertakan evidence dari laporan keuangan IDX, data fundamental terstruktur, "
+        "berita relevan, dan relasi knowledge graph bila tersedia. "
+        "Untuk laporan keuangan, fokus pada revenue, laba bersih, aset, ekuitas, EPS, "
+        "ROE, arus kas, utang, tren tahunan, sumber IDX, dan periode laporan. "
+        "Untuk berita, fokus pada peristiwa, kebijakan, tokoh, sentimen, URL sumber, "
+        "dan dampaknya ke emiten. Abaikan konteks perusahaan lain kecuali pertanyaan "
+        "meminta perbandingan. Gunakan variasi query berikut untuk memperluas retrieval: "
+        f"{'; '.join(plan.queries)}. Pertanyaan: {question}"
+    )
+
+
 def optimize_contexts(
     question: str,
     items: list[RetrievedContext],
@@ -2014,5 +2032,6 @@ __all__ = [
     "optimize_contexts",
     "prompt_context_block",
     "rewrite_queries",
+    "semantic_retrieval_prompt",
     "source_list_from_contexts",
 ]

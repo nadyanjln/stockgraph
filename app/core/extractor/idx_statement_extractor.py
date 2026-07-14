@@ -19,8 +19,8 @@ from datetime import datetime
 from typing import Literal
 
 from dotenv import load_dotenv
-from openai import OpenAI
 
+from app.core.openai_client import chat_completion
 from app.services.crawler.financial_fetcher import (
     FundamentalData,
     YearlySnapshot,
@@ -123,7 +123,6 @@ def _llm_extract_metrics(text: str, stock_code: str, year: int) -> dict[str, flo
     if not text.strip():
         return {k: None for k in _METRIC_KEYS}
 
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     truncated = text[:12000]
 
     user_prompt = (
@@ -133,7 +132,9 @@ def _llm_extract_metrics(text: str, stock_code: str, year: int) -> dict[str, flo
     )
 
     try:
-        response = client.chat.completions.create(
+        response = chat_completion(
+            caller="app.core.extractor.idx_statement_extractor._llm_extract_metrics",
+            purpose="IDX Financial Metric Extraction",
             model=EXTRACTOR_MODEL,
             messages=[
                 {"role": "system", "content": _SYSTEM_PROMPT},

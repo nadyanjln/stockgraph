@@ -8,7 +8,8 @@ from dataclasses import dataclass, field
 from typing import Literal, TypedDict
 
 from dotenv import load_dotenv
-from openai import AsyncOpenAI
+
+from app.core.openai_client import async_chat_completion, async_stream_chat_completion
 
 load_dotenv()
 
@@ -17,6 +18,16 @@ FINANCIAL_MODEL = os.getenv("FINANCIAL_MODEL", "gpt-4o-mini")
 MANAGER_MODEL = os.getenv("MANAGER_MODEL", "gpt-4.1")
 
 AgentName = Literal["news", "financial", "manager"]
+
+
+def specialist_llm_enabled() -> bool:
+    """Whether news/financial agents should summarize context with their own LLM call."""
+    return os.getenv("STOCKGRAPH_SPECIALIST_LLM_ENABLED", "false").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 class ChatMessage(TypedDict):
@@ -35,16 +46,6 @@ class AgentContext:
     diagnostics: dict = field(default_factory=dict)
 
 
-_client: AsyncOpenAI | None = None
-
-
-def openai_client() -> AsyncOpenAI:
-    global _client
-    if _client is None:
-        _client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    return _client
-
-
 async def chat_complete(
     messages: list[ChatMessage],
     model: str,
@@ -52,6 +53,8 @@ async def chat_complete(
     response_format: dict | None = None,
     top_p: float | None = None,
     max_tokens: int | None = None,
+    purpose: str = "Chat Completion",
+    caller: str = "app.core.agent.common.chat_complete",
 ) -> str:
     """Run a non-streaming chat completion without LangChain."""
     kwargs = {
@@ -66,7 +69,11 @@ async def chat_complete(
     if max_tokens is not None:
         kwargs["max_tokens"] = max_tokens
 
-    response = await openai_client().chat.completions.create(**kwargs)
+    response = await async_chat_completion(
+        caller=caller,
+        purpose=purpose,
+        **kwargs,
+    )
     return (response.choices[0].message.content or "").strip()
 
 
@@ -76,23 +83,25 @@ async def stream_chat(
     temperature: float = 0.2,
     top_p: float | None = None,
     max_tokens: int | None = None,
+    purpose: str = "Streaming Chat Completion",
+    caller: str = "app.core.agent.common.stream_chat",
 ) -> AsyncIterator[str]:
     """Stream chat tokens directly from the OpenAI async SDK."""
     kwargs = {
         "model": model,
         "messages": messages,
         "temperature": temperature,
-        "stream": True,
     }
     if top_p is not None:
         kwargs["top_p"] = top_p
     if max_tokens is not None:
         kwargs["max_tokens"] = max_tokens
-    stream = await openai_client().chat.completions.create(**kwargs)
-    async for chunk in stream:
-        delta = chunk.choices[0].delta.content
-        if delta:
-            yield delta
+    async for delta in async_stream_chat_completion(
+        caller=caller,
+        purpose=purpose,
+        **kwargs,
+    ):
+        yield delta
 
 
 def trim_history(messages: list[ChatMessage], max_turns: int = 3) -> list[ChatMessage]:
@@ -120,6 +129,7 @@ __all__ = [
     "FINANCIAL_MODEL",
     "MANAGER_MODEL",
     "chat_complete",
+    "specialist_llm_enabled",
     "stream_chat",
     "trim_history",
 ]

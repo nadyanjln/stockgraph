@@ -2,15 +2,23 @@
 
 from __future__ import annotations
 
-from app.core.agent.common import AgentContext, ChatMessage, NEWS_MODEL, chat_complete
+from app.core.agent.common import (
+    AgentContext,
+    ChatMessage,
+    NEWS_MODEL,
+    chat_complete,
+    specialist_llm_enabled,
+)
 from app.services.database.graphrag_engine import GraphRAGEngine
 from app.services.database.evidence_retriever import retrieve_local_evidence
 from app.services.database.retrieval_optimizer import (
+    QueryPlan,
     RetrievalConfig,
     make_vector_contexts,
     optimize_contexts,
     prompt_context_block,
     rewrite_queries,
+    semantic_retrieval_prompt,
     source_list_from_contexts,
 )
 from app.services.database.retrieval_debug import log_observability, prompt_stats
@@ -40,15 +48,33 @@ Aturan:
 """
 
 
+def _news_evidence_brief(ctx: AgentContext) -> str:
+    """Return retrieved news evidence directly, avoiding a redundant summary call."""
+    logger.info(
+        "specialist_llm_skipped=%s",
+        {
+            "agent": "news",
+            "reason": "direct_evidence_mode",
+            "contexts": len(ctx.snippets),
+            "sources": len(ctx.sources),
+        },
+    )
+    return (
+        f"Tersedia {len(ctx.sources)} evidence berita yang sudah diranking dan "
+        "difilter. Gunakan detail evidence pada blok sumber retrieval."
+    )
+
+
 async def retrieve_news_context(
     engine: GraphRAGEngine,
     question: str,
     year: int,
     limit: int = 6,
+    query_plan: QueryPlan | None = None,
 ) -> AgentContext:
     """Combine exact ticker/graph traversal with semantic GraphRAG context."""
     config = RetrievalConfig.from_env()
-    query_plan = rewrite_queries(question)
+    query_plan = query_plan or rewrite_queries(question)
     local = retrieve_local_evidence(
         question,
         target_year=year,
@@ -66,16 +92,7 @@ async def retrieve_news_context(
 
     if year in engine.available_years:
         result = await engine.query(
-            (
-                "Ambil konteks berita saja untuk menjawab pertanyaan berikut. "
-                "Prioritaskan konteks yang menyebut ticker/perusahaan target secara langsung "
-                "dan benar-benar menjawab pertanyaan, bukan berita pasar umum. "
-                "Fokus pada peristiwa, kebijakan, tokoh, sentimen, URL sumber, "
-                "dan dampaknya ke emiten. Abaikan konteks perusahaan lain kecuali "
-                "pertanyaan meminta perbandingan. Gunakan juga variasi query berikut untuk "
-                f"memperluas retrieval: {'; '.join(query_plan.queries)}. "
-                f"Pertanyaan: {question}"
-            ),
+            semantic_retrieval_prompt(question, query_plan),
             year=year,
             return_context=True,
         )
@@ -158,9 +175,15 @@ async def run_news_agent(
     year: int,
     history: list[ChatMessage],
     engine: GraphRAGEngine,
+    query_plan: QueryPlan | None = None,
 ) -> tuple[str, AgentContext]:
     """Answer using news-related graph context."""
-    ctx = await retrieve_news_context(engine, question, year)
+    ctx = await retrieve_news_context(
+        engine,
+        question,
+        year,
+        query_plan=query_plan,
+    )
     if not ctx.snippets:
         return (
             "Berita relevan belum ditemukan pada corpus saat ini; "
@@ -169,6 +192,9 @@ async def run_news_agent(
         )
 
     context_block = "\n".join(ctx.snippets)
+    if not specialist_llm_enabled():
+        return (_news_evidence_brief(ctx), ctx)
+
     messages: list[ChatMessage] = [
         {"role": "system", "content": NEWS_SYSTEM},
         *history[-6:],
@@ -185,6 +211,8 @@ async def run_news_agent(
         temperature=0.0,
         top_p=1.0,
         max_tokens=512,
+        purpose="News Analyst Summary",
+        caller="app.core.agent.news_agent.run_news_agent",
     )
     return (answer, ctx)
 

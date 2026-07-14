@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -19,7 +20,11 @@ class ProgressEventTests(unittest.IsolatedAsyncioTestCase):
         with patch(
             "app.core.agent.orchestrator.manager_plan",
             new=AsyncMock(return_value=plan),
-        ):
+        ), patch.dict(
+            os.environ,
+            {"DEBUG_RAG": "false"},
+            clear=False,
+        ), patch.object(Orchestrator, "_export_retrieval_debug"):
             events = [
                 event
                 async for event in orchestrator.run_stream(

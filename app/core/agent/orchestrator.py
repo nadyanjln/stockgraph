@@ -9,7 +9,11 @@ import uuid
 from dataclasses import dataclass, field
 from typing import AsyncIterator
 
-from app.core.agent.common import AgentContext, ChatMessage, trim_history
+from app.core.agent.common import (
+    AgentContext,
+    ChatMessage,
+    trim_history,
+)
 from app.core.agent.financial_agent import run_financial_agent
 from app.core.agent.manager_agent import (
     manager_plan,
@@ -26,6 +30,7 @@ from app.services.database.retrieval_debug import (
     log_observability,
 )
 from app.services.database.graphrag_engine import GraphRAGEngine
+from app.services.database.retrieval_optimizer import QueryPlan, rewrite_queries
 from app.utils.logger import get_logger
 
 HISTORY_TURNS = 3
@@ -47,7 +52,17 @@ def _dedupe_sources(items: list[dict[str, str]]) -> list[dict[str, str]]:
             continue
         seen.add(key)
         output.append(item)
-    return output[:8]
+
+    source_priority = {
+        "financial_report": 0,
+        "structured_financial": 1,
+        "graph_path": 2,
+        "news": 3,
+    }
+    return sorted(
+        output,
+        key=lambda item: source_priority.get(item.get("source_type", ""), 2),
+    )[:8]
 
 
 @dataclass
@@ -100,6 +115,7 @@ class Orchestrator:
         year: int,
         agents: list[str],
         history: list[ChatMessage],
+        query_plan: QueryPlan,
     ) -> tuple[
         dict[str, str],
         list[str],
@@ -109,11 +125,32 @@ class Orchestrator:
     ]:
         tasks = []
         if "news" in agents:
-            tasks.append(("news", run_news_agent(question, year, history, self._engine)))
+            tasks.append((
+                "news",
+                run_news_agent(
+                    question,
+                    year,
+                    history,
+                    self._engine,
+                    query_plan=query_plan,
+                ),
+            ))
         if "financial" in agents:
-            tasks.append(("financial", run_financial_agent(question, year, history, self._engine)))
+            tasks.append((
+                "financial",
+                run_financial_agent(
+                    question,
+                    year,
+                    history,
+                    self._engine,
+                    query_plan=query_plan,
+                ),
+            ))
 
-        results = await asyncio.gather(*(task for _, task in tasks), return_exceptions=True)
+        results = await asyncio.gather(
+            *(task for _, task in tasks),
+            return_exceptions=True,
+        )
 
         sub_answers: dict[str, str] = {}
         sub_citations: list[str] = []
@@ -144,11 +181,13 @@ class Orchestrator:
         """Run the full flow without token streaming."""
         history = self.sessions.history(session_id)
         plan = await manager_plan(question, history, self._engine.available_years)
+        query_plan = rewrite_queries(question)
         sub_answers, sub_citations, sub_sources, diagnostics, graph_paths = await self._run_specialists(
             question,
             plan.year,
             plan.agents,
             history,
+            query_plan,
         )
         if not sub_sources:
             final_answer = no_evidence_answer(question)
@@ -203,6 +242,7 @@ class Orchestrator:
                 "label": "Memahami pertanyaan Anda",
             }
             plan = await manager_plan(question, history, self._engine.available_years)
+            query_plan = rewrite_queries(question)
             yield {
                 "type": "progress",
                 "stage": "question_understanding",
@@ -230,7 +270,16 @@ class Orchestrator:
                     "label": "Mencari berita yang relevan",
                 }
                 yield {"type": "agent_start", "agent": "news"}
-                tasks.append(("news", run_news_agent(question, plan.year, history, self._engine)))
+                tasks.append((
+                    "news",
+                    run_news_agent(
+                        question,
+                        plan.year,
+                        history,
+                        self._engine,
+                        query_plan=query_plan,
+                    ),
+                ))
             if "financial" in plan.agents:
                 yield {
                     "type": "progress",
@@ -241,7 +290,13 @@ class Orchestrator:
                 yield {"type": "agent_start", "agent": "financial"}
                 tasks.append((
                     "financial",
-                    run_financial_agent(question, plan.year, history, self._engine),
+                    run_financial_agent(
+                        question,
+                        plan.year,
+                        history,
+                        self._engine,
+                        query_plan=query_plan,
+                    ),
                 ))
 
             yield {
@@ -250,7 +305,10 @@ class Orchestrator:
                 "status": "running",
                 "label": "Menghubungkan informasi pada knowledge graph",
             }
-            results = await asyncio.gather(*(task for _, task in tasks), return_exceptions=True)
+            results = await asyncio.gather(
+                *(task for _, task in tasks),
+                return_exceptions=True,
+            )
             sub_answers: dict[str, str] = {}
             sub_citations: list[str] = []
             sub_sources: list[dict[str, str]] = []

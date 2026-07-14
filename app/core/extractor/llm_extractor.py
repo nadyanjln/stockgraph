@@ -1,11 +1,10 @@
 import json
-import os
 from dataclasses import dataclass, field
 from typing import Literal
 
 from dotenv import load_dotenv
-from openai import OpenAI
 
+from app.core.openai_client import chat_completion
 from app.services.crawler.news_crawler import Article
 from app.services.crawler.financial_fetcher import FundamentalData
 
@@ -92,10 +91,11 @@ class ExtractionResult:
 
 def _call_llm(text: str, max_chars: int = 3000) -> dict:
     """Kirim teks ke GPT-4o, kembalikan dict {entities, relations}."""
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     truncated = text[:max_chars]
 
-    response = client.chat.completions.create(
+    response = chat_completion(
+        caller="app.core.extractor.llm_extractor._call_llm",
+        purpose="Entity and Relation Extraction",
         model="gpt-4o",
         messages=[
             {"role": "system", "content": _SYSTEM_PROMPT},
@@ -234,7 +234,6 @@ def extract_search_keywords(stock_code: str, question: str, n: int = 3) -> list[
     Returns:
         list string query untuk dipakai di crawl_by_keywords()
     """
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     prompt = (
         f"Buat {n} query pencarian berita Google News yang spesifik dan relevan "
         f"untuk menjawab pertanyaan berikut tentang saham Indonesia.\n\n"
@@ -247,7 +246,9 @@ def extract_search_keywords(stock_code: str, question: str, n: int = 3) -> list[
         f"Kembalikan JSON: {{\"queries\": [\"...\", \"...\", \"...\"]}}"
     )
     try:
-        resp = client.chat.completions.create(
+        resp = chat_completion(
+            caller="app.core.extractor.llm_extractor.extract_search_keywords",
+            purpose="News Search Query Rewrite",
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},

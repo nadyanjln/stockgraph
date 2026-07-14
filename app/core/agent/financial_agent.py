@@ -4,15 +4,23 @@ from __future__ import annotations
 
 import re
 
-from app.core.agent.common import AgentContext, ChatMessage, FINANCIAL_MODEL, chat_complete
+from app.core.agent.common import (
+    AgentContext,
+    ChatMessage,
+    FINANCIAL_MODEL,
+    chat_complete,
+    specialist_llm_enabled,
+)
 from app.services.database.graphrag_engine import GraphRAGEngine
 from app.services.database.evidence_retriever import retrieve_local_evidence
 from app.services.database.retrieval_optimizer import (
+    QueryPlan,
     RetrievalConfig,
     make_vector_contexts,
     optimize_contexts,
     prompt_context_block,
     rewrite_queries,
+    semantic_retrieval_prompt,
     source_list_from_contexts,
 )
 from app.services.database.retrieval_debug import log_observability, prompt_stats
@@ -44,15 +52,33 @@ Aturan:
 """
 
 
+def _financial_evidence_brief(ctx: AgentContext) -> str:
+    """Return retrieved financial evidence directly, avoiding a redundant summary call."""
+    logger.info(
+        "specialist_llm_skipped=%s",
+        {
+            "agent": "financial",
+            "reason": "direct_evidence_mode",
+            "contexts": len(ctx.snippets),
+            "sources": len(ctx.sources),
+        },
+    )
+    return (
+        f"Tersedia {len(ctx.sources)} evidence laporan keuangan yang sudah diranking "
+        "dan difilter. Gunakan detail evidence pada blok sumber retrieval."
+    )
+
+
 async def retrieve_financial_context(
     engine: GraphRAGEngine,
     question: str,
     year: int,
     limit: int = 8,
+    query_plan: QueryPlan | None = None,
 ) -> AgentContext:
     """Retrieve the latest available financial period plus semantic context."""
     config = RetrievalConfig.from_env()
-    query_plan = rewrite_queries(question)
+    query_plan = query_plan or rewrite_queries(question)
     local = retrieve_local_evidence(
         question,
         target_year=year,
@@ -76,14 +102,7 @@ async def retrieve_financial_context(
 
     if financial_year in engine.available_years:
         result = await engine.query(
-            (
-                "Ambil konteks financial statement saja untuk menjawab pertanyaan berikut. "
-                "Prioritaskan konteks yang menyebut ticker/perusahaan target secara langsung "
-                "dan menjawab metrik yang ditanyakan, bukan laporan perusahaan lain. "
-                "Fokus pada revenue, laba bersih, aset, ekuitas, EPS, tren tahunan, "
-                "arus kas, utang, sumber IDX, dan variasi query berikut: "
-                f"{'; '.join(query_plan.queries)}. Pertanyaan: {question}"
-            ),
+            semantic_retrieval_prompt(question, query_plan),
             year=financial_year,
             return_context=True,
         )
@@ -166,9 +185,15 @@ async def run_financial_agent(
     year: int,
     history: list[ChatMessage],
     engine: GraphRAGEngine,
+    query_plan: QueryPlan | None = None,
 ) -> tuple[str, AgentContext]:
     """Answer using financial statement graph context."""
-    ctx = await retrieve_financial_context(engine, question, year)
+    ctx = await retrieve_financial_context(
+        engine,
+        question,
+        year,
+        query_plan=query_plan,
+    )
     if not ctx.snippets:
         return (
             "Laporan keuangan yang berhasil diproses belum ditemukan pada corpus; "
@@ -177,6 +202,9 @@ async def run_financial_agent(
         )
 
     context_block = "\n".join(ctx.snippets)
+    if not specialist_llm_enabled():
+        return (_financial_evidence_brief(ctx), ctx)
+
     messages: list[ChatMessage] = [
         {"role": "system", "content": FINANCIAL_SYSTEM},
         *history[-6:],
@@ -193,6 +221,8 @@ async def run_financial_agent(
         temperature=0.0,
         top_p=1.0,
         max_tokens=512,
+        purpose="Financial Analyst Summary",
+        caller="app.core.agent.financial_agent.run_financial_agent",
     )
     return (answer, ctx)
 
