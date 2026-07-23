@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,11 +19,15 @@ class MessageRepository:
         conversation_id: int,
         sender: SenderEnum,
         message: str,
+        citations: list[str] | None = None,
+        sources: list[dict[str, Any]] | None = None,
     ) -> Message:
         row = Message(
             conversation_id=conversation_id,
             sender=sender,
             message=message,
+            citations=list(citations or []),
+            sources=list(sources or []),
         )
         self.session.add(row)
         await self.session.flush()

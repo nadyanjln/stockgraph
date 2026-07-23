@@ -15,7 +15,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   rows: 1,
   maxHeight: 180,
-  placeholder: "Write your message ...",
+  placeholder: "Apa yang ingin kamu tanyakan tentang saham pilihanmu?",
   disabled: false,
   sendLabel: "Kirim",
   loadingLabel: "Memproses...",

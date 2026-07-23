@@ -347,7 +347,12 @@ function finishTurn(content: string, status: "complete" | "error", event?: WsCha
   state.streamingText = content;
   state.isStreaming = false;
   activeAssistantMessageId = null;
-  void persistTurn(pendingUserText, content);
+  void persistTurn(
+    pendingUserText,
+    content,
+    message?.citations ?? [],
+    message?.sources ?? [],
+  );
   pendingUserText = "";
 }
 
@@ -360,10 +365,21 @@ function setConversationId(id: number | null) {
   }
 }
 
-async function persistTurn(userText: string, botText: string) {
+async function persistTurn(
+  userText: string,
+  botText: string,
+  citations: string[],
+  sources: ChatMessage["sources"],
+) {
   if (state.conversationId === null || !userText || !botText) return;
   try {
-    await apiClient.logMessages(state.conversationId, userText, botText);
+    await apiClient.logMessages(
+      state.conversationId,
+      userText,
+      botText,
+      citations,
+      sources,
+    );
   } catch (error) {
     console.warn("Gagal menyimpan percakapan ke database:", error);
   }
@@ -502,6 +518,8 @@ export function useChatSession() {
         role: row.sender === "user" ? "user" : "assistant",
         content: row.message,
         status: "complete",
+        citations: row.citations ?? [],
+        sources: row.sources ?? [],
       }));
     } catch (error) {
       console.warn("Gagal memuat pesan percakapan:", error);

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -22,6 +23,8 @@ class MessageLog(BaseModel):
 
     user_message: str = Field(..., min_length=1)
     bot_message: str = Field(..., min_length=1)
+    citations: list[str] = Field(default_factory=list)
+    sources: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class MessageOut(BaseModel):
@@ -31,6 +34,8 @@ class MessageOut(BaseModel):
     conversation_id: int
     sender: SenderEnum
     message: str
+    citations: list[str] = Field(default_factory=list)
+    sources: list[dict[str, Any]] = Field(default_factory=list)
     created_at: datetime
 
 

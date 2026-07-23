@@ -27,6 +27,8 @@ export interface MessageDto {
   conversation_id: number;
   sender: "user" | "bot";
   message: string;
+  citations: string[];
+  sources: SourceItem[];
   created_at: string;
 }
 

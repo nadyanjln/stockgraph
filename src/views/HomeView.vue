@@ -74,11 +74,10 @@ function saveAnalysisSettings() {
             <span class="hub" />
           </div>
 
-          <div class="status-pill">
-            <span class="status-dot" />
-            Data IDX & Berita Terkini
-            <i class="pi pi-info-circle" />
-          </div>
+          <button type="button" class="hero-adjust-btn" @click="openAnalysisModal">
+            <i class="pi pi-sliders-h" />
+            Sesuaikan Analisis
+          </button>
 
           <div class="hero-copy">
             <p class="eyebrow"><i class="pi pi-sparkles" /> Asisten AI untuk Analisis Saham</p>
@@ -134,6 +133,8 @@ function saveAnalysisSettings() {
               :options="AVAILABLE_STOCK_CODES"
               optionLabel="label"
               optionValue="value"
+              :selection-limit="2"
+              :show-toggle-all="false"
               filter
               placeholder="Tambahkan kode saham...."
               class="stock-select"
@@ -158,19 +159,6 @@ function saveAnalysisSettings() {
             />
           </div>
 
-          <section class="analysis-source-card">
-            <div>
-              <h2>Sumber analisis</h2>
-              <p>
-                StockGraph akan memilih berita paling relevan dan laporan keuangan IDX terbaru secara
-                otomatis untuk memberikan analisis terbaik.
-              </p>
-            </div>
-            <button type="button" class="adjust-btn" @click="openAnalysisModal">
-              <i class="pi pi-sliders-h" />
-              Sesuaikan Analisis
-            </button>
-          </section>
         </div>
       </section>
     </section>
@@ -263,9 +251,13 @@ function saveAnalysisSettings() {
 .hero-panel {
   position: relative;
   z-index: 1;
-  min-height: 314px;
+  min-height: 334px;
   margin: 0;
-  padding: 44px 32px 0;
+  padding: 56px 32px 104px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   overflow: visible;
   background: transparent;
 }
@@ -325,42 +317,75 @@ function saveAnalysisSettings() {
   background: rgba(218, 230, 255, 0.72);
 }
 
-.status-pill {
+.hero-adjust-btn {
   position: absolute;
+  z-index: 3;
   right: 32px;
   top: 18px;
-  min-height: 28px;
-  padding: 0 10px;
-  border-radius: 999px;
-  background: rgba(226, 234, 249, 0.74);
-  color: #64708a;
-  display: flex;
+  min-height: 46px;
+  padding: 0 18px;
+  border: 1px solid rgba(101, 149, 225, 0.2);
+  border-radius: 14px;
+  background: #fff;
+  color: #4164f5;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  font-size: 11px;
+  font: inherit;
+  font-size: 14px;
   font-weight: 700;
-  box-shadow: 0 10px 24px rgba(117, 143, 190, 0.14);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(72, 113, 180, 0.14);
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
 }
 
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: #52bf44;
-  box-shadow: 0 0 0 4px rgba(82, 191, 68, 0.14);
+.hero-adjust-btn i {
+  font-size: 16px;
+}
+
+.hero-adjust-btn:hover {
+  border-color: rgba(66, 125, 219, 0.5);
+  box-shadow: 0 10px 24px rgba(72, 113, 180, 0.2);
+  transform: translateY(-1px);
+}
+
+.hero-adjust-btn:focus-visible {
+  outline: 3px solid rgba(43, 122, 251, 0.2);
+  outline-offset: 2px;
 }
 
 .hero-copy {
   position: relative;
   z-index: 2;
-  width: min(100%, 820px);
+  isolation: isolate;
+  width: min(100%, 880px);
   margin: 0 auto;
   text-align: center;
 }
 
+.hero-copy::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -22px -48px;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(248, 251, 255, 0.98) 0%,
+    rgba(248, 251, 255, 0.88) 52%,
+    rgba(248, 251, 255, 0) 78%
+  );
+}
+
 .eyebrow {
   width: fit-content;
-  margin: 0 auto 10px;
+  margin: 0 auto 22px;
   border-radius: 999px;
   padding: 6px 14px;
   background: rgba(224, 233, 255, 0.74);
@@ -385,15 +410,22 @@ function saveAnalysisSettings() {
 }
 
 .hero-subtitle {
-  width: min(100%, 680px);
-  margin: 3px auto 0;
-  color: #4f5c70;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.34;
+  width: min(100%, 760px);
+  margin: 10px auto 0;
+  padding: 7px 24px;
+  color: #344054;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(248, 251, 255, 0.82) 0%,
+    rgba(248, 251, 255, 0.58) 58%,
+    rgba(248, 251, 255, 0) 100%
+  );
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
   text-shadow:
     0 1px 0 rgba(255, 255, 255, 0.9),
-    0 0 14px rgba(255, 255, 255, 0.75);
+    0 0 16px rgba(255, 255, 255, 0.9);
 }
 
 .hero-chart-card {
@@ -405,6 +437,7 @@ function saveAnalysisSettings() {
   border-radius: 10px;
   background: rgba(252, 254, 255, 0.54);
   box-shadow: 0 18px 45px rgba(94, 121, 174, 0.08);
+  opacity: 0.68;
   transform: rotate(-7deg);
 }
 
@@ -471,6 +504,7 @@ function saveAnalysisSettings() {
   width: 240px;
   height: 160px;
   z-index: 1;
+  opacity: 0.62;
 }
 
 .hero-network::before,
@@ -700,79 +734,6 @@ function saveAnalysisSettings() {
   overflow: visible;
 }
 
-.analysis-source-card {
-  margin-top: 10px;
-  border: 1px solid rgba(149, 184, 239, 0.34);
-  border-radius: 10px;
-  background: linear-gradient(105deg, #c7ddff 0%, #d6e5ff 100%);
-  padding: 11px 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: clamp(18px, 3vw, 32px);
-}
-
-.analysis-source-card > div {
-  min-width: 0;
-  flex: 1 1 auto;
-  max-width: 680px;
-}
-
-.analysis-source-card h2 {
-  margin: 0 0 3px;
-  color: #111827;
-  font-size: 13px;
-  line-height: 1.3;
-  font-weight: 750;
-}
-
-.analysis-source-card p {
-  margin: 0;
-  color: #000;
-  font-size: 10.5px;
-  line-height: 1.5;
-  font-weight: 600;
-}
-
-.adjust-btn {
-  flex: 0 0 auto;
-  min-height: 34px;
-  padding: 0 13px;
-  border: 1px solid rgba(101, 149, 225, 0.28);
-  border-radius: 9px;
-  background: #fff;
-  color: #0866ff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1;
-  white-space: nowrap;
-  cursor: pointer;
-  box-shadow: 0 5px 14px rgba(72, 113, 180, 0.1);
-  transition:
-    border-color 0.18s ease,
-    box-shadow 0.18s ease,
-    transform 0.18s ease;
-}
-
-.adjust-btn i {
-  font-size: 12px;
-}
-
-.adjust-btn:hover {
-  border-color: rgba(66, 125, 219, 0.5);
-  box-shadow: 0 7px 17px rgba(72, 113, 180, 0.16);
-  transform: translateY(-1px);
-}
-
-.adjust-btn:focus-visible {
-  outline: 3px solid rgba(43, 122, 251, 0.2);
-  outline-offset: 2px;
-}
-
 :global(.p-multiselect-panel .p-checkbox .p-checkbox-box) {
   border-color: #2b7afb !important;
 }
@@ -909,7 +870,7 @@ function saveAnalysisSettings() {
     overflow: hidden;
   }
 
-  .status-pill {
+  .hero-adjust-btn {
     right: 18px;
   }
 
@@ -944,19 +905,9 @@ function saveAnalysisSettings() {
 }
 
 @media (max-width: 680px) {
-  .analysis-source-card {
-    align-items: stretch;
-    flex-direction: column;
-    gap: 10px;
-    padding: 12px;
-  }
-
-  .analysis-source-card > div {
-    max-width: none;
-  }
-
-  .adjust-btn {
-    width: 100%;
+  .hero-adjust-btn {
+    right: 14px;
+    top: 14px;
   }
 }
 </style>

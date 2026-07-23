@@ -8,6 +8,8 @@ const socketHarness = vi.hoisted(() => ({
 }));
 const apiHarness = vi.hoisted(() => ({
   runPipeline: vi.fn(),
+  listMessages: vi.fn(),
+  logMessages: vi.fn(),
 }));
 
 vi.mock("@/services/chatSocket", () => ({
@@ -41,10 +43,10 @@ vi.mock("@/services/apiClient", () => ({
   apiClient: {
     runPipeline: apiHarness.runPipeline,
     clearHistory: vi.fn(),
-    logMessages: vi.fn(),
+    logMessages: apiHarness.logMessages,
     createConversation: vi.fn(),
     listConversations: vi.fn(),
-    listMessages: vi.fn(),
+    listMessages: apiHarness.listMessages,
   },
 }));
 
@@ -98,6 +100,10 @@ describe("useChatSession progress lifecycle", () => {
     socketHarness.sent = [];
     apiHarness.runPipeline.mockReset();
     apiHarness.runPipeline.mockResolvedValue(pipeline());
+    apiHarness.listMessages.mockReset();
+    apiHarness.listMessages.mockResolvedValue([]);
+    apiHarness.logMessages.mockReset();
+    apiHarness.logMessages.mockResolvedValue({});
   });
 
   afterEach(() => {
@@ -149,6 +155,80 @@ describe("useChatSession progress lifecycle", () => {
     expect(assistant.content).toBe("Jawaban final [1]");
     expect(assistant.sources).toHaveLength(1);
     expect(assistant.progressSteps?.every((step) => step.status === "completed")).toBe(true);
+  });
+
+  it("restores citations and sources when a conversation is loaded from history", async () => {
+    apiHarness.listMessages.mockResolvedValueOnce([
+      {
+        id: 1,
+        conversation_id: 77,
+        sender: "user",
+        message: "Bagaimana BBCA?",
+        citations: [],
+        sources: [],
+        created_at: "2026-07-23T10:00:00Z",
+      },
+      {
+        id: 2,
+        conversation_id: 77,
+        sender: "bot",
+        message: "Kinerja BBCA solid [1].",
+        citations: ["[1]"],
+        sources: [
+          {
+            source_id: "news-1",
+            source_type: "news",
+            title: "Berita BBCA",
+            source_name: "Kontan",
+            url: "https://example.com/bbca",
+            publication_date: "2026-07-20",
+            snippet: "Ringkasan",
+            retrieved_text: "",
+          },
+        ],
+        created_at: "2026-07-23T10:00:01Z",
+      },
+    ]);
+
+    await chat.loadConversation(77);
+
+    const assistant = chat.state.messages[1]!;
+    expect(assistant.citations).toEqual(["[1]"]);
+    expect(assistant.sources?.[0]?.source_id).toBe("news-1");
+  });
+
+  it("persists citations and sources with a completed assistant turn", async () => {
+    chat.state.conversationId = 77;
+    await chat.streamQuestion("[BBCA] Bagaimana prospeknya?");
+    const sources = [
+      {
+        source_id: "news-1",
+        source_type: "news",
+        title: "Berita BBCA",
+        source_name: "Kontan",
+        url: "https://example.com/bbca",
+        publication_date: "2026-07-20",
+        snippet: "Ringkasan",
+        retrieved_text: "",
+      },
+    ];
+
+    emit({
+      type: "final",
+      answer_markdown: "Jawaban final [1]",
+      citations: ["[1]"],
+      sources,
+    });
+
+    await vi.waitFor(() => {
+      expect(apiHarness.logMessages).toHaveBeenCalledWith(
+        77,
+        "[BBCA] Bagaimana prospeknya?",
+        "Jawaban final [1]",
+        ["[1]"],
+        sources,
+      );
+    });
   });
 
   it("serializes parallel backend stages into one visual spinner", async () => {

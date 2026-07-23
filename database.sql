@@ -67,6 +67,8 @@ CREATE TABLE messages (
         CHECK (sender IN ('user', 'bot')),
 
     message TEXT NOT NULL,
+    citations JSONB NOT NULL DEFAULT '[]'::jsonb,
+    sources JSONB NOT NULL DEFAULT '[]'::jsonb,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 

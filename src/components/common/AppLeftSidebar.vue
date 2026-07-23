@@ -118,13 +118,13 @@ onBeforeUnmount(() => {
         <input
           v-model="searchTerm"
           type="search"
-          placeholder="Search conversations"
+          placeholder="Cari percakapan"
           class="rail-search"
         />
       </label>
 
-      <section class="rail-log" aria-label="Conversation history">
-        <p class="rail-log-title">Conversation history</p>
+      <section class="rail-log" aria-label="Riwayat percakapan">
+        <p class="rail-log-title">Riwayat percakapan</p>
         <ul>
           <li v-for="conversation in filteredConversations" :key="conversation.id">
             <button
@@ -137,7 +137,7 @@ onBeforeUnmount(() => {
             </button>
           </li>
           <li v-if="!filteredConversations.length" class="rail-log-empty">
-            {{ searchTerm ? "No matching conversations." : "Belum ada percakapan." }}
+            {{ searchTerm ? "Tidak ada percakapan yang cocok." : "Belum ada percakapan." }}
           </li>
         </ul>
       </section>
@@ -145,7 +145,7 @@ onBeforeUnmount(() => {
       <div class="rail-bottom">
         <button type="button" class="new-conversation-btn" @click="startNewChat">
           <i class="pi pi-plus" aria-hidden="true" />
-          <span>New conversation</span>
+          <span>Percakapan baru</span>
         </button>
 
         <div ref="profileMenuRef" class="profile-menu-wrap">
@@ -217,13 +217,13 @@ onBeforeUnmount(() => {
 
     <template v-else>
       <nav class="rail-icons" aria-label="Sidebar shortcuts">
-        <button type="button" class="rail-icon-btn" title="New conversation" @click="startNewChat">
+        <button type="button" class="rail-icon-btn" title="Percakapan baru" @click="startNewChat">
           <i class="pi pi-plus" />
         </button>
-        <button type="button" class="rail-icon-btn" title="Search conversations" @click="toggle">
+        <button type="button" class="rail-icon-btn" title="Cari percakapan" @click="toggle">
           <i class="pi pi-search" />
         </button>
-        <button type="button" class="rail-icon-btn" title="Conversation history" @click="toggle">
+        <button type="button" class="rail-icon-btn" title="Riwayat percakapan" @click="toggle">
           <i class="pi pi-comments" />
         </button>
       </nav>

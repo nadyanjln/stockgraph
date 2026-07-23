@@ -71,12 +71,23 @@ export const apiClient = {
     requestData<ConversationDto[]>(`/api/v1/conversations/users/${userId}`),
   listMessages: (conversationId: number) =>
     requestData<MessageDto[]>(`/api/v1/conversations/${conversationId}/messages`),
-  logMessages: (conversationId: number, userMessage: string, botMessage: string) =>
+  logMessages: (
+    conversationId: number,
+    userMessage: string,
+    botMessage: string,
+    citations: string[] = [],
+    sources: ChatMessage["sources"] = [],
+  ) =>
     requestData<{ user_message: MessageDto; bot_message: MessageDto }>(
       `/api/v1/conversations/${conversationId}/messages/log`,
       {
         method: "POST",
-        body: JSON.stringify({ user_message: userMessage, bot_message: botMessage }),
+        body: JSON.stringify({
+          user_message: userMessage,
+          bot_message: botMessage,
+          citations,
+          sources: sources ?? [],
+        }),
       },
     ),
 

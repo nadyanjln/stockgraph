@@ -9,6 +9,8 @@ Sending a message in one call:
 
 from __future__ import annotations
 
+from typing import Any
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.message import Message, SenderEnum
@@ -46,7 +48,13 @@ class MessageService:
         return user_msg, bot_msg
 
     async def log_pair(
-        self, conversation_id: int, user_text: str, bot_text: str, user_id: int
+        self,
+        conversation_id: int,
+        user_text: str,
+        bot_text: str,
+        user_id: int,
+        citations: list[str] | None = None,
+        sources: list[dict[str, Any]] | None = None,
     ) -> tuple[Message, Message]:
         """Persist a user message and an externally-produced bot reply as-is."""
         convo = await self.convo_repo.get_by_id(conversation_id)
@@ -62,6 +70,8 @@ class MessageService:
             conversation_id=conversation_id,
             sender=SenderEnum.BOT,
             message=bot_text,
+            citations=citations,
+            sources=sources,
         )
         await self.session.commit()
         return user_msg, bot_msg

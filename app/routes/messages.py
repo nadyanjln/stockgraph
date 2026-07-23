@@ -57,7 +57,12 @@ async def log_messages(
 ) -> APIResponse[SendMessageResponse]:
     service = MessageService(session)
     user_msg, bot_msg = await service.log_pair(
-        conversation_id, payload.user_message, payload.bot_message, current_user.id
+        conversation_id,
+        payload.user_message,
+        payload.bot_message,
+        current_user.id,
+        citations=payload.citations,
+        sources=payload.sources,
     )
     return APIResponse[SendMessageResponse](
         message="messages logged",

@@ -104,6 +104,14 @@ async def init_db() -> None:
                 "session_version INTEGER NOT NULL DEFAULT 1"
             ))
             await conn.execute(text(
+                "ALTER TABLE messages ADD COLUMN IF NOT EXISTS "
+                "citations JSONB NOT NULL DEFAULT '[]'::jsonb"
+            ))
+            await conn.execute(text(
+                "ALTER TABLE messages ADD COLUMN IF NOT EXISTS "
+                "sources JSONB NOT NULL DEFAULT '[]'::jsonb"
+            ))
+            await conn.execute(text(
                 "UPDATE users SET email = lower(username) || '@legacy.stockgraph.local' "
                 "WHERE email IS NULL OR email = ''"
             ))

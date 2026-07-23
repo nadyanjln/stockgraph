@@ -14,8 +14,12 @@ class ManagerResponseStyleTests(unittest.TestCase):
 
         self.assertIn("Jika pengguna meminta perbandingan", prompt)
         self.assertIn("tabel Markdown", prompt)
-        self.assertIn("2-4 kalimat per paragraf", prompt)
+        self.assertIn("maksimal 2-3 kalimat per paragraf", prompt)
         self.assertIn("numbered list", prompt)
+        self.assertIn("heading `##`", prompt)
+        self.assertIn("Jangan menggunakan HTML", prompt)
+        self.assertIn("Kembalikan hanya Markdown", prompt)
+        self.assertIn("Jangan menambah, menghapus, atau mengubah informasi", prompt)
         self.assertIn("Setiap bullet harus menyampaikan satu gagasan utama", prompt)
         self.assertNotIn("Gunakan struktur jawaban berikut", prompt)
         self.assertNotIn("1. Monolog:", prompt)
@@ -39,7 +43,10 @@ class ManagerResponseStyleTests(unittest.TestCase):
 
         instruction = messages[-1]["content"]
         self.assertIn("berdasarkan intent pertanyaan", instruction)
-        self.assertIn("sekitar 2-4 kalimat", instruction)
+        self.assertIn("maksimal 2-3 kalimat", instruction)
+        self.assertIn("heading ##", instruction)
+        self.assertIn("Kembalikan hanya Markdown", instruction)
+        self.assertIn("tanpa menambah, menghapus, atau mengubah informasi", instruction)
         self.assertIn("referensi sudah ditampilkan secara terpisah", instruction)
         self.assertNotIn("Gunakan struktur wajib", instruction)
 
